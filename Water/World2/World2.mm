@@ -6,7 +6,7 @@
 //  Copyright 2012 Vasiliy Yanushevich. All rights reserved.
 //
 
-#import "SPHNode.h"
+#import "World2.h"
 #import "cmath"
 
 bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nearestPos, b2Vec2& impactNormal);
@@ -149,7 +149,7 @@ bool QueryWorldPostIntersect::ReportFixture(b2Fixture *fixture) {
     return true;
 }
 
-@implementation SPHNode
+@implementation World2
 
 inline float b2Random(float lo, float hi) {
     return ((hi - lo) * CCRANDOM_0_1() + lo);;
@@ -199,11 +199,11 @@ inline int hashY(float y)
         
         particle_sprites = [[CCSpriteBatchNode batchNodeWithFile:@"drop.png"] retain];
 		        
-        [self createStaticGeometry];
-        intersectQueryCallback = new QueryWorldInteractions(hashGridList, liquid);
-        eulerIntersectQueryCallback = new QueryWorldPostIntersect(hashGridList, liquid);
+//        [self createStaticGeometry];
+//        intersectQueryCallback = new QueryWorldInteractions(hashGridList, liquid);
+//        eulerIntersectQueryCallback = new QueryWorldPostIntersect(hashGridList, liquid);
         
-        [self schedule:@selector(update:) interval:1.0f/60.0f];
+//        [self schedule:@selector(update:) interval:1.0f/60.0f];
     }
     return self;
 }
@@ -212,12 +212,12 @@ inline int hashY(float y)
 {
     m_world = new b2World(b2Vec2(0.f, -10.f));
     
-    m_debugDraw = new GLESDebugDraw( 32.f );
-	m_world->SetDebugDraw(m_debugDraw);
-	
-	uint32 flags = 0;
-	flags += b2Draw::e_shapeBit;
-	m_debugDraw->SetFlags(flags);
+//    m_debugDraw = new GLESDebugDraw( 32.f );
+//	m_world->SetDebugDraw(m_debugDraw);
+//	
+//	uint32 flags = 0;
+//	flags += b2Draw::e_shapeBit;
+//	m_debugDraw->SetFlags(flags);
 	
 	
     // Static geometry
@@ -292,33 +292,7 @@ inline int hashY(float y)
 
 -(void) draw
 {
-	glDisable(GL_ALPHA_TEST);
-	glPushMatrix();
-	glDisable(GL_TEXTURE_2D);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
-	m_world->DrawDebugData();
-
-    glEnable(GL_TEXTURE_2D);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	glPopMatrix();
-	
-	CGSize screenSize = [CCDirector sharedDirector].winSize;
-    
-    if(renderTextureB==nil){
-        renderTextureB = [DLRenderTexture renderTextureWithWidth:screenSize.width height:screenSize.height pixelFormat:kCCTexture2DPixelFormat_RGBA4444];
-        renderTextureB.position = ccp(390,520);//(80, 140);//390,520);//screenSize.width/2, screenSize.height/2);
-		renderTextureB.anchorPoint = ccp(0,0);
-        [self addChild:renderTextureB];
-    }
-	
-    [renderTextureB clear:0.0 g:0.0 b:0.0 a:0.0];
-    [renderTextureB begin];
-    [particle_sprites visit];
-//	[super draw];
-    [renderTextureB end];
+	[Common draw];
 }
 
 -(void)dealloc
@@ -330,7 +304,7 @@ inline int hashY(float y)
 
 -(void)accelerometer:(UIAccelerometer *)accelerometer didAccelerate:(UIAcceleration *)acceleration
 {
-    m_world->SetGravity(b2Vec2(10.f * acceleration.x, 10.f * acceleration.y));
+    [Common processAccelometry:acceleration];
 }
 
 -(void)update:(ccTime)dt
@@ -781,7 +755,16 @@ void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& norma
 	}
 }
 
+-(void)particlesCountUp:(NSInteger)diff_
+{
+	CGSize size = [[CCDirector sharedDirector] winSize];
 
+}
+
+-(void)particlesCountDown:(NSInteger)diff_
+{
+
+}
 
 
 @end

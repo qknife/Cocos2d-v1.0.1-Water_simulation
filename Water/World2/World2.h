@@ -8,14 +8,12 @@
 
 #import <Foundation/Foundation.h>
 #import "cocos2d.h"
-#import "Box2d.h"
+#import "Common.h"
 #import "FluidHashList.h"
-#import "GLES-Render.h"
-#import "DLRenderTexture.h"
+#import "WorldSceneProtocol.h"
 
 // SPH node for simulating Smoothed-Particle hydrodynamics
 // Individual particles are stored as struct, to keep things as simple as possible
-
 // Everything is just a copy-paste of the ElectroDruid code from this post: http://www.box2d.org/forum/viewtopic.php?f=3&t=574&sid=0f208bac89ee07a05d5a524ef3b652cc&start=70
 
 //#define VERLET_INTEGRATION
@@ -77,14 +75,13 @@ protected:
     sParticle *liquid;
 };
 
-@interface SPHNode : CCLayer {
+@interface World2 : CCLayer<WorldSceneProtocol>
+{
     CCSpriteBatchNode *particle_sprites;
     
     b2World *m_world;
     QueryWorldInteractions *intersectQueryCallback;
     QueryWorldPostIntersect *eulerIntersectQueryCallback;
-    
-	GLESDebugDraw *m_debugDraw;		// strong ref
     
     // MAGIC NUMBERS
 	float totalMass;
@@ -95,8 +92,6 @@ protected:
 	float rad;
 	float visc;
 	float idealRad;
-	
-	DLRenderTexture *renderTextureB;
     
 	//////////////////////////////////////////////////////////////////////////
     

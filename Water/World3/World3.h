@@ -4,7 +4,7 @@
 
 @class DLRenderTexture;
 
-@interface World1 : CCLayer <WorldSceneProtocol>
+@interface World3 : CCLayer <WorldSceneProtocol>
 
 -(void)addNewSpriteWithCoords:(CGPoint)p;
 

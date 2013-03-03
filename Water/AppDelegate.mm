@@ -73,6 +73,7 @@
 	
 	// Run the intro Scene
 	[[CCDirector sharedDirector] runWithScene: [CCScene node]];
+	[Common start];
 	[Common createNextScene];
 }
 

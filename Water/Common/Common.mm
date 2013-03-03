@@ -7,8 +7,10 @@
 //
 
 #import "Common.h"
-#import "World1.h"
 #import "WorldSceneProtocol.h"
+#import "World1.h"
+#import "World2.h"
+#import "World3.h"
 #import "DLRenderTexture.h"
 #import "GLES-Render.h"
 
@@ -24,12 +26,18 @@ static NSInteger particlesCount = 125;
 static CCLabelTTF *particlesCountLabel = nil;
 static CCSpriteBatchNode *batch = nil;
 static DLRenderTexture *renderTexture = nil;
+static CGSize size;
+
+#define MW(_p_) (size.width / 100.0f * _p_) / PTM_RATIO
+#define MH(_p_) (size.height / 100.0f * _p_) / PTM_RATIO
+#define UNIT MH(1.0f)
 
 @interface Common (Private)
 
 +(void)cleanScene;
 +(void)initializeScene;
 +(void)createWorld;
++(void)createScene;
 
 @end
 
@@ -39,6 +47,11 @@ static DLRenderTexture *renderTexture = nil;
 +(b2World *)world
 {
 	return world;
+}
+
++(CGSize)size
+{
+	return size;
 }
 
 +(CCSpriteBatchNode *)batch
@@ -73,21 +86,56 @@ static DLRenderTexture *renderTexture = nil;
 	[particlesCountLabel setString:[NSString stringWithFormat:@"%d",particlesCount]];
 }
 
-
 #pragma mark - scenes
++(void)start
+{
+	size = CGSizeMake([[CCDirector sharedDirector] winSize].width * CC_CONTENT_SCALE_FACTOR(), [[CCDirector sharedDirector] winSize].height * CC_CONTENT_SCALE_FACTOR());
+}
+
 +(void)createNextScene
+{
+	currentSceneIndex++;
+	if (currentSceneIndex > maxSceneIndex)
+	{
+		currentSceneIndex = maxSceneIndex;
+	}
+	else
+	{
+		[self createScene];
+	}
+}
+
++(void)createPreviousScene
+{
+	currentSceneIndex--;
+	if (currentSceneIndex < 0)
+	{
+		currentSceneIndex = 0;
+	}
+	else
+	{
+		[self createScene];
+	}
+}
+
++(void)createScene
 {
 	// clean current scene
 	[self cleanScene];
 	
 	// create world
-	[self createWorld];
+	[self createWorld];	
 	
-	currentSceneIndex++;
 	switch (currentSceneIndex)
 	{
 		case 0:
 			currentScene = [World1 node];
+			break;
+		case 1:
+			currentScene = [World2 node];
+			break;
+		case 2:
+			currentScene = [World3 node];
 			break;
 	}
 	
@@ -95,13 +143,7 @@ static DLRenderTexture *renderTexture = nil;
 	[self initializeScene];
 	
 	// replace scene
-	[[CCDirector sharedDirector] replaceScene:[CCTransitionFade transitionWithDuration:0.5f scene:currentScene]];
-}
-
-+(void)createPreviousScene
-{
-	// clean current scene
-	[self cleanScene];
+	[[CCDirector sharedDirector] replaceScene:currentScene];	
 }
 
 #pragma mark - private
@@ -122,9 +164,7 @@ static DLRenderTexture *renderTexture = nil;
 	flags += b2Draw::e_shapeBit;
 	m_debugDraw->SetFlags(flags);
 	
-	/*** ground ***/
-	CGSize size = [[CCDirector sharedDirector] winSize];
-	
+	/*** ground ***/	
 	// Define the ground body.
 	b2BodyDef groundBodyDef;
 	groundBodyDef.position.Set(0, 0); // bottom-left corner
@@ -150,30 +190,33 @@ static DLRenderTexture *renderTexture = nil;
 	groundBody->CreateFixture(&groundBox,0);
 	
 	/*** Static geometry ***/
-    b2PolygonShape sd;
-    sd.SetAsBox(5.0f, 0.5f);
-    
     b2BodyDef bd;
     bd.type = b2_staticBody;
-    bd.position.Set(12.5f, 7.0f);
-    b2Body* ground = world->CreateBody(&bd);
+    bd.position.Set(0, 0);
+    b2Body *obstacles = world->CreateBody(&bd);
 	
     b2FixtureDef gFix;
-    gFix.shape = &sd;
+	b2PolygonShape sd;
+	gFix.shape = &sd;
 	
-    ground->CreateFixture(&gFix);
-    sd.SetAsBox(0.5f, 10.0f,b2Vec2(-7.5f,9.5f),0);
-    ground->CreateFixture(&gFix);
-    sd.SetAsBox(0.5f, 10.0f,b2Vec2(5.5f,9.5f),0);
-    ground->CreateFixture(&gFix);
-    sd.SetAsBox(4.5f, 0.5f,b2Vec2(0.0f,4.0f),0.57f);
-    ground->CreateFixture(&gFix);
-	
+	int const obstacles_count = 9;
+	float data[obstacles_count][5] = {{1,3,49,49,-1.57f / 2},{5,1,40,47,0},{1,4,34,50,0},{7,1,23,66,-1.57f / 2},{1,7,16,78,0},{9,1,40,66,-1.57f / 2},{1,14,31,86,0},{1,11,63,53,0},{1,5,59,40,-1.57f / 2}};
+	for (int i = 0; i < obstacles_count; i++)
+	{
+		sd.SetAsBox(data[i][0] * UNIT, data[i][1] * UNIT,b2Vec2(MW(data[i][2]),MH(data[i][3])),data[i][4]);
+		obstacles->CreateFixture(&gFix);
+	}
+
 	b2CircleShape cd;
-    cd.m_radius = 0.5f;
-    cd.m_p = b2Vec2(-6.0f,-3.0f);
-    gFix.shape = &cd;
-    ground->CreateFixture(&gFix);
+	gFix.shape = &cd;
+    cd.m_radius = UNIT;
+    cd.m_p = b2Vec2(MW(37),MH(30));
+    obstacles->CreateFixture(&gFix);
+	cd.m_p = b2Vec2(MW(41),MH(33));
+    obstacles->CreateFixture(&gFix);
+	cd.m_p = b2Vec2(MW(46),MH(30));
+    obstacles->CreateFixture(&gFix);
+
 }
 
 +(void)initializeScene
@@ -192,7 +235,7 @@ static DLRenderTexture *renderTexture = nil;
 	[self createMenu];
 	
 	// override init for scene
-	[currentScene initializeScene];
+	[currentScene particlesCountUp:125];
 }
 
 +(void)cleanScene
@@ -213,18 +256,6 @@ static DLRenderTexture *renderTexture = nil;
 		delete m_debugDraw;
 		m_debugDraw = NULL;
 	}
-	
-	if (batch)
-	{
-		[batch release];
-		batch = nil;
-	}
-	
-	if (renderTexture)
-	{
-		[renderTexture release];
-		renderTexture = nil;
-	}	
 }
 
 +(void)createMenu
@@ -237,7 +268,7 @@ static DLRenderTexture *renderTexture = nil;
 	CCLabelTTF *name_scene = [CCLabelTTF labelWithString:[nameScene objectAtIndex:currentSceneIndex] fontName:@"Marker Felt" fontSize:32];
 	// position the label on the center of the screen
 	name_scene.anchorPoint = ccp(0.5f, 0);
-	name_scene.position =  ccp(size.width /2 , size.height / 10 - name_scene.contentSize.height);
+	name_scene.position =  ccp(size.width / 2 , size.height / 10 - name_scene.contentSize.height);
 	// add the label as a child to this Layer
 	[currentScene addChild: name_scene];
 	
@@ -255,28 +286,12 @@ static DLRenderTexture *renderTexture = nil;
 	// Menu Item using blocks
 	CCMenuItem *previous_scene = [CCMenuItemFont itemFromString:@"Previous" block:^(id sender)
 								  {
-									  currentSceneIndex--;
-									  if (currentSceneIndex < 0)
-									  {
-										  currentSceneIndex = 0;
-									  }
-									  else
-									  {
-										  [self createPreviousScene];
-									  }
+									  [self createPreviousScene];
 								  }];
 	// Menu Item using blocks
 	CCMenuItem *next_scene = [CCMenuItemFont itemFromString:@"Next" block:^(id sender)
 							  {
-								  currentSceneIndex++;
-								  if (currentSceneIndex > maxSceneIndex)
-								  {
-									  currentSceneIndex = maxSceneIndex;
-								  }
-								  else
-								  {
-									  [self createNextScene];
-								  }
+								  [self createNextScene];
 							  }];
 
 	
@@ -315,7 +330,7 @@ static DLRenderTexture *renderTexture = nil;
     [batch visit];
     [renderTexture end];
 	
-#if 1 == DEBUG
+#if 1 == DEBUG_DRAW
 	glPushMatrix();
 	glDisable(GL_TEXTURE_2D);
     glDisableClientState(GL_COLOR_ARRAY);

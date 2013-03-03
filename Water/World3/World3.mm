@@ -1,9 +1,9 @@
 // Import the interfaces
-#import "World1.h"
+#import "World3.h"
 #import "Common.h"
 
 // HelloWorldLayer implementation
-@implementation World1
+@implementation World3
 
 // on "init" you need to initialize your instance
 -(id) init
