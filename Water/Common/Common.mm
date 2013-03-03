@@ -9,17 +9,21 @@
 #import "Common.h"
 #import "World1.h"
 #import "WorldSceneProtocol.h"
+#import "DLRenderTexture.h"
+#import "GLES-Render.h"
 
 static const NSInteger maxSceneIndex = 2;
 static const NSInteger labelFontSize = 28;
 
 static CCScene<WorldSceneProtocol> *currentScene = nil;
 static NSInteger currentSceneIndex = -1;
-static NSArray *nameScene = [[NSArray alloc]initWithObjects:@"Box2D", nil];
+static NSArray *nameScene = [[NSArray alloc]initWithObjects:@"Box2D",@"SPH",@"JD",nil];
 static b2World *world;
 static GLESDebugDraw *m_debugDraw;
 static NSInteger particlesCount = 125;
 static CCLabelTTF *particlesCountLabel = nil;
+static CCSpriteBatchNode *batch = nil;
+static DLRenderTexture *renderTexture = nil;
 
 @interface Common (Private)
 
@@ -37,6 +41,11 @@ static CCLabelTTF *particlesCountLabel = nil;
 	return world;
 }
 
++(CCSpriteBatchNode *)batch
+{
+	return batch;
+}
+
 +(NSInteger)getParticlesCount
 {
 	return particlesCount;
@@ -47,6 +56,15 @@ static CCLabelTTF *particlesCountLabel = nil;
 	if (count_ < 125)
 	{
 		return;
+	}
+	
+	if (particlesCount < count_)
+	{
+		[currentScene particlesCountUp: count_ - particlesCount];
+	}
+	else
+	{
+		[currentScene particlesCountDown: particlesCount - count_];
 	}
 		
 	particlesCount = count_;
@@ -160,6 +178,16 @@ static CCLabelTTF *particlesCountLabel = nil;
 
 +(void)initializeScene
 {
+	CGSize size = [CCDirector sharedDirector].winSize;
+	
+	// set up sprite
+	batch = [[CCSpriteBatchNode batchNodeWithFile:@"drop.png" capacity:1000] retain];
+	
+	// render texture
+	renderTexture = [DLRenderTexture renderTextureWithWidth:size.width height:size.height pixelFormat:kCCTexture2DPixelFormat_RGBA4444];
+	renderTexture.position = ccp(size.width / 2, size.height / 2);
+	[currentScene addChild:renderTexture];
+	
 	// create menu
 	[self createMenu];
 	
@@ -173,6 +201,30 @@ static CCLabelTTF *particlesCountLabel = nil;
 	{
 		return;
 	}
+	
+	if (world)
+	{
+		delete world;
+		world = NULL;
+	}
+	
+	if (m_debugDraw)
+	{
+		delete m_debugDraw;
+		m_debugDraw = NULL;
+	}
+	
+	if (batch)
+	{
+		[batch release];
+		batch = nil;
+	}
+	
+	if (renderTexture)
+	{
+		[renderTexture release];
+		renderTexture = nil;
+	}	
 }
 
 +(void)createMenu
@@ -255,6 +307,47 @@ static CCLabelTTF *particlesCountLabel = nil;
 }
 
 #pragma mark - process scene
++(void)draw
+{
+	glDisable(GL_ALPHA_TEST);
+	
+    [renderTexture beginWithClear:0 g:0 b:0 a:0];
+    [batch visit];
+    [renderTexture end];
+	
+#if 1 == DEBUG
+	glPushMatrix();
+	glDisable(GL_TEXTURE_2D);
+    glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	
+	WORLD->DrawDebugData();
+	
+    glEnable(GL_TEXTURE_2D);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	glPopMatrix();
+#endif
+}
 
++(void)processAccelometry:(UIAcceleration *)acceleration_
+{
+	static float prevX=0, prevY=0;
+    
+	//#define kFilterFactor 0.05f
+#define kFilterFactor 1.0f	// don't use filter. the code is here just as an example
+    
+	float accelX = (float) acceleration_.x * kFilterFactor + (1- kFilterFactor)*prevX;
+	float accelY = (float) acceleration_.y * kFilterFactor + (1- kFilterFactor)*prevY;
+    
+	prevX = accelX;
+	prevY = accelY;
+    
+	// accelerometer values are in "Portrait" mode. Change them to Landscape left
+	// multiply the gravity by 15
+	b2Vec2 gravity(accelX * 15, accelY * 15);
+    
+	world->SetGravity(gravity);
+}
 
 @end

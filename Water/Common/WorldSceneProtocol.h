@@ -11,5 +11,7 @@
 @protocol WorldSceneProtocol <NSObject>
 
 -(void)initializeScene;
+-(void)particlesCountUp:(NSInteger)diff_;
+-(void)particlesCountDown:(NSInteger)diff_;
 
 @end

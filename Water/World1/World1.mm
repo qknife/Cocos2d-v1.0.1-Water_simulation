@@ -1,8 +1,6 @@
 // Import the interfaces
 #import "World1.h"
 #import "Common.h"
-#import "DLRenderTexture.h"
-#import "SPHNode.h"
 
 // HelloWorldLayer implementation
 @implementation World1
@@ -12,86 +10,34 @@
 {
 	if( (self=[super init]))
 	{
-		// enable touches
-		self.isTouchEnabled = YES;
-        
 		// enable accelerometer
 		self.isAccelerometerEnabled = YES;
         
-		CGSize s = [[CCDirector sharedDirector] winSize];
-		
-		//Set up sprite
-		batch = [[CCSpriteBatchNode batchNodeWithFile:@"drop.png" capacity:300] retain];
-		
-		CGSize screenSize = [CCDirector sharedDirector].winSize;
-		renderTextureB = [DLRenderTexture renderTextureWithWidth:screenSize.width height:screenSize.height pixelFormat:kCCTexture2DPixelFormat_RGBA4444];
-        renderTextureB.position = ccp(screenSize.width/2, screenSize.height/2);
-        [self addChild:renderTextureB];
-        
-        NSInteger maxBlobs = 200;
-		for(NSInteger i = 0; i<maxBlobs; i++){
-            [self addNewSpriteWithCoords:ccp(random()%(int)s.width/5, s.height-(random()%(int)s.height/5))];
-        }
-		
 		[self schedule: @selector(tick:) interval:1.0f/60.0f];
 	}
+	
 	return self;
 }
 
 -(void)initializeScene
 {
+	CGSize size = [[CCDirector sharedDirector] winSize];
 	
-}
-
-- (void)drawLiquid{    
-  
-    glDisable(GL_ALPHA_TEST);
-
-	[renderTextureB beginWithClear:0 g:0 b:0 a:0];	
-    [batch visit];
-    [renderTextureB end];
+	for(NSInteger i = 0; i < PARTICLES_COUNT; i++)
+	{
+		[self addNewSpriteWithCoords:ccp(random()%(int)size.width / 5, size.height-(random()%(int)size.height / 5))];
+	}
 }
 
 -(void) draw
 {
-	glDisable(GL_ALPHA_TEST);
-	
-	//    [renderTextureB clear:0.0 g:0.0 b:0.0 a:0.0];
-    [renderTextureB begin];
-	
-	// save clear color
-	GLfloat	clearColor[4];
-	glGetFloatv(GL_COLOR_CLEAR_VALUE,clearColor);
-	
-	glClearColor(0, 0, 0, 0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	// restore clear color
-	glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
-	
-    [batch visit];
-    [renderTextureB end];
-	
-	glPushMatrix();
-	glDisable(GL_TEXTURE_2D);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	
-	WORLD->DrawDebugData();
-	
-    glEnable(GL_TEXTURE_2D);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	glPopMatrix();
+	[Common draw];
 }
 
 -(void) addNewSpriteWithCoords:(CGPoint)p
 {
-    
 	CCSprite *sprite = [CCSprite spriteWithFile:@"drop.png"];
-   // [sprite setScale:0.7];
-	[batch addChild:sprite];
-    
+	[BATCH addChild:sprite];
 	sprite.position = ccp( p.x, p.y);
     
 	// Define the dynamic body.
@@ -113,6 +59,26 @@
 	fixtureDef.friction = 0.0f;
     fixtureDef.restitution = 0.4f;
 	body->CreateFixture(&fixtureDef);
+}
+
+-(void)particlesCountUp:(NSInteger)diff_
+{
+	CGSize size = [[CCDirector sharedDirector] winSize];
+	
+	for(NSInteger i = 0; i < diff_; i++)
+	{
+		[self addNewSpriteWithCoords:ccp(random()%(int)size.width / 5, size.height-(random()%(int)size.height / 5))];
+	}
+}
+
+-(void)particlesCountDown:(NSInteger)diff_
+{
+	for (NSInteger i = 0; i< diff_; i++)
+	{
+		b2Body *b = WORLD->GetBodyList();
+		[((CCSprite *)b->GetUserData()) removeFromParentAndCleanup:YES];
+		WORLD->DestroyBody(b);
+	}
 }
 
 -(void) tick: (ccTime) dt
@@ -142,59 +108,9 @@
 	WORLD->ClearForces ();
 }
 
-//- (void)ccTouchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
-//{
-//	//Add a new body/atlas sprite at the touched location
-//	for( UITouch *touch in touches ) {
-//		CGPoint location = [touch locationInView: [touch view]];
-//        
-//		location = [[CCDirector sharedDirector] convertToGL: location];
-//        
-//		[self addNewSpriteWithCoords: location];
-//	}
-//}
-
 - (void)accelerometer:(UIAccelerometer*)accelerometer didAccelerate:(UIAcceleration*)acceleration
 {
-	static float prevX=0, prevY=0;
-    
-	//#define kFilterFactor 0.05f
-#define kFilterFactor 1.0f	// don't use filter. the code is here just as an example
-    
-	float accelX = (float) acceleration.x * kFilterFactor + (1- kFilterFactor)*prevX;
-	float accelY = (float) acceleration.y * kFilterFactor + (1- kFilterFactor)*prevY;
-    
-	prevX = accelX;
-	prevY = accelY;
-    
-	// accelerometer values are in "Portrait" mode. Change them to Landscape left
-	// multiply the gravity by 15
-	b2Vec2 gravity(accelX * 15, accelY * 15);
-    
-	WORLD->SetGravity( gravity );
-}
-
-// on "dealloc" you need to release all your retained objects
-- (void) dealloc
-{
-	// in case you have something to dealloc, do it in this method
-//	delete WORLD;
-//	WORLD = NULL;
-//    
-//	delete m_debugDraw;
-    
-	// don't forget to call "super dealloc"
-	[super dealloc];
-}
-
--(void) onEnter
-{
-	[super onEnter];
-//    CCScene *next = [CCScene node];
-//    SPHNode *sph = [SPHNode node];
-////	sph.position = ccp(0,300);
-//    [next addChild: sph];
-//	[[CCDirector sharedDirector] replaceScene:[CCTransitionFade transitionWithDuration:1.0 scene:next ]];
+	[Common processAccelometry:acceleration];
 }
 
 @end
