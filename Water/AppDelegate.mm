@@ -10,7 +10,6 @@
 
 #import "AppDelegate.h"
 #import "Common.h"
-#import "RootViewController.h"
 
 @implementation AppDelegate
 
@@ -30,7 +29,7 @@
 	CCDirector *director = [CCDirector sharedDirector];
 	
 	// Init the View Controller
-	viewController = [[RootViewController alloc] initWithNibName:nil bundle:nil];
+	viewController = [[UIViewController alloc] initWithNibName:nil bundle:nil];
 	viewController.wantsFullScreenLayout = YES;
 	
 	//
@@ -55,7 +54,7 @@
 
 	[director setAnimationInterval:1.0f/60];
 	[director setDisplayFPS:YES];
-	
+	[director setProjection:kCCDirectorProjection2D];
 	
 	// make the OpenGLView a child of the view controller
 	[viewController setView:glView];
@@ -70,7 +69,6 @@
 	// You can change anytime.
 	[CCTexture2D setDefaultAlphaPixelFormat:kCCTexture2DPixelFormat_RGBA8888];
 
-	
 	// Run the intro Scene
 	[[CCDirector sharedDirector] runWithScene: [CCScene node]];
 	[Common start];

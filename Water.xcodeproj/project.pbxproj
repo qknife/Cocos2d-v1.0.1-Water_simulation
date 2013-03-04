@@ -120,7 +120,6 @@
 		396DC91316DBA00D00DD865A /* ZFont.m in Sources */ = {isa = PBXBuildFile; fileRef = 396DC91216DBA00D00DD865A /* ZFont.m */; };
 		396DC98B16DBA00E00DD865A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 396DC98A16DBA00E00DD865A /* main.m */; };
 		396DC98E16DBA00E00DD865A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 396DC98D16DBA00E00DD865A /* AppDelegate.mm */; };
-		396DC99116DBA00E00DD865A /* RootViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 396DC99016DBA00E00DD865A /* RootViewController.m */; };
 		3970859316E3E46E00BA8662 /* World2.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3970859216E3E46E00BA8662 /* World2.mm */; };
 		3970859616E3E7BB00BA8662 /* World3.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3970859516E3E7BB00BA8662 /* World3.mm */; };
 		39722D1C16DCCFAE00224A03 /* Box2DConfig.cmake in Resources */ = {isa = PBXBuildFile; fileRef = 39722CB916DCCFAE00224A03 /* Box2DConfig.cmake */; };
@@ -409,8 +408,6 @@
 		396DC98A16DBA00E00DD865A /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		396DC98C16DBA00E00DD865A /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		396DC98D16DBA00E00DD865A /* AppDelegate.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AppDelegate.mm; sourceTree = "<group>"; };
-		396DC98F16DBA00E00DD865A /* RootViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RootViewController.h; sourceTree = "<group>"; };
-		396DC99016DBA00E00DD865A /* RootViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RootViewController.m; sourceTree = "<group>"; };
 		3970858F16E3899F00BA8662 /* WorldSceneProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WorldSceneProtocol.h; sourceTree = "<group>"; };
 		3970859016E3E46E00BA8662 /* FluidHashList.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FluidHashList.h; sourceTree = "<group>"; };
 		3970859116E3E46E00BA8662 /* World2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = World2.h; sourceTree = "<group>"; };
@@ -581,8 +578,6 @@
 				39BE868F16DFA28E0050BA1A /* Common */,
 				396DC98C16DBA00E00DD865A /* AppDelegate.h */,
 				396DC98D16DBA00E00DD865A /* AppDelegate.mm */,
-				396DC98F16DBA00E00DD865A /* RootViewController.h */,
-				396DC99016DBA00E00DD865A /* RootViewController.m */,
 				396DC7C816DBA00700DD865A /* Resources */,
 				396DC7DC16DBA00700DD865A /* libs */,
 				396DC98816DBA00E00DD865A /* Supporting Files */,
@@ -1288,7 +1283,6 @@
 				396DC91316DBA00D00DD865A /* ZFont.m in Sources */,
 				396DC98B16DBA00E00DD865A /* main.m in Sources */,
 				396DC98E16DBA00E00DD865A /* AppDelegate.mm in Sources */,
-				396DC99116DBA00E00DD865A /* RootViewController.m in Sources */,
 				39722D1E16DCCFAE00224A03 /* b2BroadPhase.cpp in Sources */,
 				39722D1F16DCCFAE00224A03 /* b2CollideCircle.cpp in Sources */,
 				39722D2016DCCFAE00224A03 /* b2CollideEdge.cpp in Sources */,

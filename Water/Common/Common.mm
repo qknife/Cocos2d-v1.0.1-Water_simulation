@@ -15,14 +15,13 @@
 #import "GLES-Render.h"
 
 static const NSInteger maxSceneIndex = 2;
-static const NSInteger labelFontSize = 28;
 
 static CCScene<WorldSceneProtocol> *currentScene = nil;
 static NSInteger currentSceneIndex = -1;
-static NSArray *nameScene = [[NSArray alloc]initWithObjects:@"Box2D",@"SPH",@"JD",nil];
+static NSArray *nameScene = [[NSArray alloc]initWithObjects:@"Box2D",@"SPH+Box2D",@"JD",nil];
 static b2World *world;
 static GLESDebugDraw *m_debugDraw;
-static NSInteger particlesCount = 125;
+static NSInteger particlesCount = 0;
 static CCLabelTTF *particlesCountLabel = nil;
 static CCSpriteBatchNode *batch = nil;
 static DLRenderTexture *renderTexture = nil;
@@ -31,6 +30,11 @@ static CGSize size;
 #define MW(_p_) (size.width / 100.0f * _p_) / PTM_RATIO
 #define MH(_p_) (size.height / 100.0f * _p_) / PTM_RATIO
 #define UNIT MH(1.0f)
+
+#define UNIT_FONT (size.width / 100.0f * 0.15f)
+#define TITLE_TEXT 32 * UNIT_FONT
+#define MIDDLE_TEXT 28 * UNIT_FONT
+#define SMALL_TEXT 24 * UNIT_FONT
 
 @interface Common (Private)
 
@@ -79,7 +83,7 @@ static CGSize size;
 	{
 		[currentScene particlesCountDown: particlesCount - count_];
 	}
-		
+	
 	particlesCount = count_;
 	
 	// change text label
@@ -234,8 +238,9 @@ static CGSize size;
 	// create menu
 	[self createMenu];
 	
-	// override init for scene
-	[currentScene particlesCountUp:125];
+	// set sprites
+	particlesCount = 0;
+	[self setParticlesCount:125];
 }
 
 +(void)cleanScene
@@ -256,6 +261,11 @@ static CGSize size;
 		delete m_debugDraw;
 		m_debugDraw = NULL;
 	}
+	
+	if (batch)
+	{
+		[batch release];
+	}
 }
 
 +(void)createMenu
@@ -265,7 +275,7 @@ static CGSize size;
 	
 	/*** name of scene ***/
 	// create and initialize a Label
-	CCLabelTTF *name_scene = [CCLabelTTF labelWithString:[nameScene objectAtIndex:currentSceneIndex] fontName:@"Marker Felt" fontSize:32];
+	CCLabelTTF *name_scene = [CCLabelTTF labelWithString:[nameScene objectAtIndex:currentSceneIndex] fontName:@"Marker Felt" fontSize:TITLE_TEXT];
 	// position the label on the center of the screen
 	name_scene.anchorPoint = ccp(0.5f, 0);
 	name_scene.position =  ccp(size.width / 2 , size.height / 10 - name_scene.contentSize.height);
@@ -274,7 +284,7 @@ static CGSize size;
 	
 	/*** count of particles ***/
 	// create and initialize a Label
-	particlesCountLabel = [CCLabelTTF labelWithString:[NSString stringWithFormat:@"%d",particlesCount] fontName:@"Marker Felt" fontSize:16];
+	particlesCountLabel = [CCLabelTTF labelWithString:[NSString stringWithFormat:@"%d",particlesCount] fontName:@"Marker Felt" fontSize:SMALL_TEXT];
 	// position the label on the center of the screen
 	particlesCountLabel.anchorPoint = ccp(0, 0);
 	particlesCountLabel.position =  ccp(0 , size.height / 10 - particlesCountLabel.contentSize.height);
@@ -282,7 +292,7 @@ static CGSize size;
 	[currentScene addChild: particlesCountLabel];
 	
 	/*** switchers for scene ***/
-	[CCMenuItemFont setFontSize:labelFontSize];
+	[CCMenuItemFont setFontSize:MIDDLE_TEXT];
 	// Menu Item using blocks
 	CCMenuItem *previous_scene = [CCMenuItemFont itemFromString:@"Previous" block:^(id sender)
 								  {
@@ -293,11 +303,10 @@ static CGSize size;
 							  {
 								  [self createNextScene];
 							  }];
-
 	
 	CCMenu *menu = [CCMenu menuWithItems:previous_scene, next_scene, nil];
 	[menu alignItemsHorizontallyWithPadding:20];
-	[menu setPosition:ccp(size.width/2, name_scene.position.y - labelFontSize)];
+	[menu setPosition:ccp(size.width/2, name_scene.position.y - MIDDLE_TEXT)];
 	// Add the menu to the layer
 	[currentScene addChild:menu];
 	
@@ -316,7 +325,7 @@ static CGSize size;
 	
 	menu = [CCMenu menuWithItems:count_up, count_down, nil];
 	[menu alignItemsVerticallyWithPadding:10];
-	[menu setPosition:ccp(size.width - labelFontSize, name_scene.position.y - labelFontSize / 2)];
+	[menu setPosition:ccp(size.width - MIDDLE_TEXT, name_scene.position.y - MIDDLE_TEXT / 2)];
 	// Add the menu to the layer
 	[currentScene addChild:menu];
 }
