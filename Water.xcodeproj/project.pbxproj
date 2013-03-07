@@ -413,7 +413,7 @@
 		3970859116E3E46E00BA8662 /* World2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = World2.h; sourceTree = "<group>"; };
 		3970859216E3E46E00BA8662 /* World2.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = World2.mm; sourceTree = "<group>"; };
 		3970859416E3E7BB00BA8662 /* World3.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = World3.h; sourceTree = "<group>"; };
-		3970859516E3E7BB00BA8662 /* World3.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = World3.mm; sourceTree = "<group>"; };
+		3970859516E3E7BB00BA8662 /* World3.mm */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = World3.mm; sourceTree = "<group>"; };
 		39722CB816DCCFAE00224A03 /* Box2D.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Box2D.h; sourceTree = "<group>"; };
 		39722CB916DCCFAE00224A03 /* Box2DConfig.cmake */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Box2DConfig.cmake; sourceTree = "<group>"; };
 		39722CBA16DCCFAE00224A03 /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };

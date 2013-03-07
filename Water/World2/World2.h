@@ -7,7 +7,6 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "cocos2d.h"
 #import "Common.h"
 #import "FluidHashList.h"
 #import "WorldSceneProtocol.h"
@@ -16,10 +15,10 @@
 // Individual particles are stored as struct, to keep things as simple as possible
 // Everything is just a copy-paste of the ElectroDruid code from this post: http://www.box2d.org/forum/viewtopic.php?f=3&t=574&sid=0f208bac89ee07a05d5a524ef3b652cc&start=70
 
-#define hashWidth		(100)
-#define hashHeight		(100)
+#define hashWidth		(40)
+#define hashHeight		(40)
 
-const int nominalNeighbourListLength = 128;
+const int nominalNeighbourListLength = 256;
 
 struct sParticle
 {

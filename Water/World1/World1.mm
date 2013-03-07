@@ -1,6 +1,5 @@
 // Import the interfaces
 #import "World1.h"
-#import "Common.h"
 
 // HelloWorldLayer implementation
 @implementation World1
@@ -13,7 +12,7 @@
 		// enable accelerometer
 		self.isAccelerometerEnabled = YES;
         
-		[self schedule: @selector(tick:) interval:1.0f/60.0f];
+		[self schedule: @selector(tick:) interval:1.0f/30.0f];
 	}
 	
 	return self;
@@ -73,6 +72,11 @@
 
 -(void) tick: (ccTime) dt
 {
+	if (SCENE != (CCScene<WorldSceneProtocol> *)self)
+	{
+		return;
+	}
+	
 	//It is recommended that a fixed time step is used with Box2D for stability
 	//of the simulation, however, we are using a variable time step here.
 	//You need to make an informed choice, the following URL is useful

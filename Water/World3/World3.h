@@ -1,11 +1,6 @@
-#import "cocos2d.h"
-#import "Box2D.h"
 #import "WorldSceneProtocol.h"
-
-@class DLRenderTexture;
+#import "Common.h"
 
 @interface World3 : CCLayer <WorldSceneProtocol>
-
--(void)addNewSpriteWithCoords:(CGPoint)p;
 
 @end

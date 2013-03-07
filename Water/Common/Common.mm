@@ -7,7 +7,6 @@
 //
 
 #import "Common.h"
-#import "WorldSceneProtocol.h"
 #import "World1.h"
 #import "World2.h"
 #import "World3.h"
@@ -18,7 +17,7 @@ static const NSInteger maxSceneIndex = 2;
 
 static CCScene<WorldSceneProtocol> *currentScene = nil;
 static NSInteger currentSceneIndex = -1;
-static NSArray *nameScene = [[NSArray alloc]initWithObjects:@"Box2D",@"SPH+Box2D",@"JD",nil];
+static NSArray *nameScene = [[NSArray alloc]initWithObjects:@"Box2D",@"SPH (Vavius)+Box2D",@"JD",nil];
 static b2World *world;
 static GLESDebugDraw *m_debugDraw;
 static NSInteger particlesCount = 0;
@@ -27,8 +26,6 @@ static CCSpriteBatchNode *batch = nil;
 static DLRenderTexture *renderTexture = nil;
 static CGSize size;
 
-#define MW(_p_) (size.width / 100.0f * _p_) / PTM_RATIO
-#define MH(_p_) (size.height / 100.0f * _p_) / PTM_RATIO
 #define UNIT MH(1.0f)
 
 #define UNIT_FONT (size.width / 100.0f * 0.15f)
@@ -56,6 +53,11 @@ static CGSize size;
 +(CGSize)size
 {
 	return size;
+}
+
++(CCScene<WorldSceneProtocol> *)getCurrentScene
+{
+	return currentScene;
 }
 
 +(CCSpriteBatchNode *)batch
@@ -147,7 +149,7 @@ static CGSize size;
 	[self initializeScene];
 	
 	// replace scene
-	[[CCDirector sharedDirector] replaceScene:currentScene];	
+	[[CCDirector sharedDirector] replaceScene:currentScene];
 }
 
 #pragma mark - private
@@ -159,7 +161,8 @@ static CGSize size;
 	world = new b2World(gravity);
 	world->SetAllowSleeping(true);
 	world->SetContinuousPhysics(true);
-	
+
+#if 1 == DEBUG_DRAW
 	/*** debug ***/
 	m_debugDraw = new GLESDebugDraw(PTM_RATIO);
 	world->SetDebugDraw(m_debugDraw);
@@ -167,31 +170,35 @@ static CGSize size;
 	uint32 flags = 0;
 	flags += b2Draw::e_shapeBit;
 	m_debugDraw->SetFlags(flags);
+#endif
 	
 	/*** ground ***/	
 	// Define the ground body.
 	b2BodyDef groundBodyDef;
+	groundBodyDef.type = b2_staticBody;
 	groundBodyDef.position.Set(0, 0); // bottom-left corner
 	b2Body *groundBody = world->CreateBody(&groundBodyDef);
 	
 	// Define the ground box shape.
-	b2EdgeShape groundBox;
+	b2FixtureDef gGroundFix;
+	b2PolygonShape groundBox;
+	gGroundFix.shape = &groundBox;
 	
 	// bottom
-	groundBox.Set(b2Vec2(0,(size.height / 10.0)/PTM_RATIO), b2Vec2(size.width/PTM_RATIO,(size.height / 10.0)/PTM_RATIO));
-	groundBody->CreateFixture(&groundBox,0);
+	groundBox.SetAsBox(100 * UNIT, UNIT / 5,b2Vec2(MW(50),MH(10)),0);
+	groundBody->CreateFixture(&gGroundFix);
 	
 	// top
-	groundBox.Set(b2Vec2(0,size.height/PTM_RATIO), b2Vec2(size.width/PTM_RATIO,size.height/PTM_RATIO));
-	groundBody->CreateFixture(&groundBox,0);
-	
+	groundBox.SetAsBox(100 * UNIT, UNIT / 5,b2Vec2(MW(50),MH(100)),0);
+	groundBody->CreateFixture(&gGroundFix);
+
 	// left
-	groundBox.Set(b2Vec2(0,size.height/PTM_RATIO), b2Vec2(0,0));
-	groundBody->CreateFixture(&groundBox,0);
+	groundBox.SetAsBox(UNIT / 5, 100 * UNIT,b2Vec2(MW(0),MH(50)),0);
+	groundBody->CreateFixture(&gGroundFix);
 	
 	// right
-	groundBox.Set(b2Vec2(size.width/PTM_RATIO,size.height/PTM_RATIO), b2Vec2(size.width/PTM_RATIO,0));
-	groundBody->CreateFixture(&groundBox,0);
+	groundBox.SetAsBox(UNIT / 5, 100 * UNIT,b2Vec2(MW(100),MH(50)),0);
+	groundBody->CreateFixture(&gGroundFix);
 	
 	/*** Static geometry ***/
     b2BodyDef bd;
@@ -338,7 +345,7 @@ static CGSize size;
     [renderTexture beginWithClear:0 g:0 b:0 a:0];
     [batch visit];
     [renderTexture end];
-	
+
 #if 1 == DEBUG_DRAW
 	glPushMatrix();
 	glDisable(GL_TEXTURE_2D);

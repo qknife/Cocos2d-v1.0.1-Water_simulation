@@ -125,17 +125,16 @@ bool QueryWorldPostIntersect::ReportFixture(b2Fixture *fixture)
     return true;
 }
 
+static float fluidMinX;
+static float fluidMaxX;
+static float fluidMinY;
+static float fluidMaxY;
+
 @implementation World2
 
 inline float b2Random(float lo, float hi) {
     return ((hi - lo) * CCRANDOM_0_1() + lo);;
 }
-
-const float fluidMinX = 5.0f;
-const float fluidMaxX = 19.0f;
-const float fluidMinY = 2.0f;
-const float fluidMaxY = 25.0f;
-
 
 inline float myMap(float val, float minInput, float maxInput, float minOutput, float maxOutput)
 {
@@ -172,11 +171,13 @@ inline int hashY(float y)
         boxHeight = 1.f;
         
         self.isAccelerometerEnabled = YES;
+		
+		fluidMinX = MW(0);
+		fluidMaxX = MW(100);
+		fluidMinY = MH(0);
+		fluidMaxY = MH(100);
         
-        intersectQueryCallback = new QueryWorldInteractions(hashGridList, liquid);
-        eulerIntersectQueryCallback = new QueryWorldPostIntersect(hashGridList, liquid);
-        
-        [self schedule:@selector(update:) interval:1.0f/60.0f];
+        [self schedule:@selector(update:) interval:1.0f/30.0f];
     }
 	
     return self;
@@ -188,8 +189,20 @@ inline int hashY(float y)
 	
 	// recreate data
 	void *tmp = liquid;
+	
+	intersectQueryCallback = NULL;
+	eulerIntersectQueryCallback = NULL;
+	
 	liquid = (sParticle *)calloc(sizeof(sParticle), PARTICLES_COUNT + diff_);
 	
+	// recreate delegates
+	if (liquid)
+	{
+		intersectQueryCallback = new QueryWorldInteractions(hashGridList, liquid);
+        eulerIntersectQueryCallback = new QueryWorldPostIntersect(hashGridList, liquid);
+	}
+	
+	// if was old alloc - replace data to new alloc
 	if (tmp)
 	{
 		memcpy(liquid, tmp, sizeof(sParticle) * PARTICLES_COUNT);
@@ -222,12 +235,16 @@ inline int hashY(float y)
 		[BATCH addChild:sp];
 		
 		liquid[i].sp = sp;
-		liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPosition.x, PTM_RATIO * liquid[i].mPosition.y);
+		liquid[i].sp.position = ccp(p.x, p.y);
 	}
 }
 
 -(void)particlesCountDown:(NSInteger)diff_
 {
+	for(NSInteger i = PARTICLES_COUNT - 1; i >= PARTICLES_COUNT - diff_; i--)
+	{
+		[liquid[i].sp removeFromParentAndCleanup:YES];
+	}
 }
 
 -(void)draw
@@ -242,20 +259,18 @@ inline int hashY(float y)
 
 -(void)update:(ccTime)dt
 {
-//	dt = 1.0f / 60.0f;
+	if (SCENE != (CCScene<WorldSceneProtocol> *)self)
+	{
+		return;
+	}
 
 	// Update positions, and hash them
     [self stepFluidParticles:dt];
-//    [self hashLocations];
-//	[self applyLiquidConstraint:dt];
-//    [self processWorldInteractions:dt];
-//    [self dampenLiquid];
-    
-	// Update box2d positions
-	WORLD->Step(dt, 8, 3);
-    
-	// Resolve any remaining intersections
-//	[self resolveIntersections:dt];
+    [self hashLocations];
+	[self applyLiquidConstraint:dt];
+    [self processWorldInteractions:dt];
+    [self dampenLiquid];
+	[self resolveIntersections:dt];
 }
 
 -(void)clearHashGrid
@@ -312,164 +327,163 @@ inline int hashY(float y)
 
 -(void)applyLiquidConstraint:(float)deltaT
 {
-//	// * Unfortunately, this simulation method is not actually scale
-//    // * invariant, and it breaks down for rad < ~3 or so.  So we need
-//    // * to scale everything to an ideal rad and then scale it back after.
-//    
-//	float multiplier = idealRad / rad;
-//    
-//	float static xchange[PARTICLES_COUNT] = { 0.0f };
-//	float static ychange[PARTICLES_COUNT] = { 0.0f };
-//    
-//	float static xs[PARTICLES_COUNT];
-//	float static ys[PARTICLES_COUNT];
-//	float static vxs[PARTICLES_COUNT];
-//	float static vys[PARTICLES_COUNT];
-//    
-//	for (int i = 0; i < PARTICLES_COUNT; ++i)
-//	{
-//		xs[i] = multiplier*liquid[i].mPosition.x;
-//		ys[i] = multiplier*liquid[i].mPosition.y;
-//		vxs[i] = multiplier*liquid[i].mVelocity.x;
-//		vys[i] = multiplier*liquid[i].mVelocity.y;
-//		xchange[i] = 0;
-//		ychange[i] = 0;
-//	}
-//    
-//	cFluidHashList neighbours;
-//    
-//	float *vlen = vlenBuffer;
-//    
-//	for(int i = 0; i < PARTICLES_COUNT; i++)
-//	{
-//		// Populate the neighbor list from the 9 proximate cells
-//		int hcell = hashX(liquid[i].mPosition.x);
-//		int vcell = hashY(liquid[i].mPosition.y);
-//        
-//		bool bFoundFirstCell = false;
-//		for(int nx = -1; nx < 2; nx++)
-//		{
-//			for(int ny = -1; ny < 2; ny++)
-//			{
-//				int xc = hcell + nx;
-//				int yc = vcell + ny;
-//				if(xc > -1 && xc < hashWidth && yc > -1 && yc < hashHeight)
-//				{
-//					if(!hashGridList[xc][yc].IsEmpty())
-//					{
-//						if(!bFoundFirstCell)
-//						{
-//							// Set the head and tail of the beginning of our neighbours list
-//							neighbours.SetHead(hashGridList[xc][yc].pHead());
-//							neighbours.SetTail(hashGridList[xc][yc].pTail());
-//							bFoundFirstCell = true;
-//						}
-//						else
-//						{
-//							// We already have a neighbours list, so just add this cell's particles onto
-//							// the end of it.
-//							neighbours.Splice(hashGridList[xc][yc].pHead(), hashGridList[xc][yc].pTail());
-//						}
-//					}
-//				}
-//			}
-//		}
-//        
-//		int neighboursListSize = neighbours.GetSize();
-//		neighbours.ResetIterator();
-//        
-//		// Particle pressure calculated by particle proximity
-//		// Pressures = 0 if all particles within range are idealRad distance away
-//		float p = 0.0f;
-//		float pnear = 0.0f;
-//		for(int a = 0; a < neighboursListSize; a++)
-//		{
-//			int n = neighbours.GetNext();
-//            
-//			int j = n;
-//            
-//			float vx = xs[j]-xs[i];//liquid[j]->GetWorldCenter().x - liquid[i]->GetWorldCenter().x;
-//			float vy = ys[j]-ys[i];//liquid[j]->GetWorldCenter().y - liquid[i]->GetWorldCenter().y;
-//            
-//			//early exit check
-//			if(vx > -idealRad && vx < idealRad && vy > -idealRad && vy < idealRad)
-//			{
-//				float vlensqr = (vx * vx + vy * vy);
-//				//within idealRad check
-//				if(vlensqr < idealRad*idealRad)
-//				{
-//					vlen[a] = b2Sqrt(vlensqr);
-//					if (vlen[a] < b2_linearSlop)
-//					{
-////						vlen[a] = idealRad-.01f;
-//                        vlen[a] = b2_linearSlop;
-//					}
-//					float oneminusq = 1.0f-(vlen[a] / idealRad);
-//					p = (p + oneminusq*oneminusq);
-//					pnear = (pnear + oneminusq*oneminusq*oneminusq);
-//				}
-//				else
-//				{
-//					vlen[a] = MAXFLOAT;
-//				}
-//			}
-//		}
-//        
-//		// Now actually apply the forces
-//		float pressure = (p - 5.0f) / 2.0f; //normal pressure term
-//		float presnear = pnear / 2.0f; //near particles term
-//		float changex = 0.0f;
-//		float changey = 0.0f;
-//        
-//		neighbours.ResetIterator();
-//        
-//		for(int a = 0; a < neighboursListSize; a++)
-//		{
-//			int n = neighbours.GetNext();
-//            
-//			int j = n;
-//            
-//			float vx = xs[j]-xs[i];//liquid[j]->GetWorldCenter().x - liquid[i]->GetWorldCenter().x;
-//			float vy = ys[j]-ys[i];//liquid[j]->GetWorldCenter().y - liquid[i]->GetWorldCenter().y;
-//			if(vx > -idealRad && vx < idealRad && vy > -idealRad && vy < idealRad)
-//			{
-//				if(vlen[a] < idealRad)
-//				{
-//					float q = vlen[a] / idealRad;
-//					float oneminusq = 1.0f-q;
-//					float factor = oneminusq * (pressure + presnear * oneminusq) / (2.0f*vlen[a]);
-//					float dx = vx * factor;
-//					float dy = vy * factor;
-//					float relvx = vxs[j] - vxs[i];
-//					float relvy = vys[j] - vys[i];
-//					factor = visc * oneminusq * deltaT;
-//					dx -= relvx * factor;
-//					dy -= relvy * factor;
-//                    
-//					xchange[j] += dx;
-//					ychange[j] += dy;
-//					changex -= dx;
-//					changey -= dy;
-//				}
-//			}
-//		}
-//        
-//		xchange[i] += changex;
-//		ychange[i] += changey;
-//        
-//		// We've finished with this neighbours list, so go back and re-null-terminate all of the
-//		// grid cells lists ready for the next particle's neighbours list.
-//		[self resetGridTailPointers:i];
-//	}
-//	
-//	for (int i=0; i < PARTICLES_COUNT; ++i)
-//	{
-//		liquid[i].mPosition += b2Vec2(xchange[i] / multiplier, ychange[i] / multiplier);
-//        
-//#ifndef VERLET_INTEGRATION
-//		liquid[i].mVelocity += b2Vec2(xchange[i] / (multiplier*deltaT), ychange[i] / (multiplier*deltaT));
-//#endif
-//	}
+	// * Unfortunately, this simulation method is not actually scale
+    // * invariant, and it breaks down for rad < ~3 or so.  So we need
+    // * to scale everything to an ideal rad and then scale it back after.
+    
+	float multiplier = idealRad / rad;
+    
+	float static xchange[3000] = { 0.0f };
+	float static ychange[3000] = { 0.0f };
+    
+	float static xs[3000];
+	float static ys[3000];
+	float static vxs[3000];
+	float static vys[3000];
+    
+	for (int i = 0; i < PARTICLES_COUNT; ++i)
+	{
+		xs[i] = multiplier*liquid[i].mPosition.x;
+		ys[i] = multiplier*liquid[i].mPosition.y;
+		vxs[i] = multiplier*liquid[i].mVelocity.x;
+		vys[i] = multiplier*liquid[i].mVelocity.y;
+		xchange[i] = 0;
+		ychange[i] = 0;
+	}
+    
+	cFluidHashList neighbours;
+    
+	float *vlen = vlenBuffer;
+    
+	for(int i = 0; i < PARTICLES_COUNT; i++)
+	{
+		// Populate the neighbor list from the 9 proximate cells
+		int hcell = hashX(liquid[i].mPosition.x);
+		int vcell = hashY(liquid[i].mPosition.y);
+        
+		bool bFoundFirstCell = false;
+		for(int nx = -1; nx < 2; nx++)
+		{
+			for(int ny = -1; ny < 2; ny++)
+			{
+				int xc = hcell + nx;
+				int yc = vcell + ny;
+				if(xc > -1 && xc < hashWidth && yc > -1 && yc < hashHeight)
+				{
+					if(!hashGridList[xc][yc].IsEmpty())
+					{
+						if(!bFoundFirstCell)
+						{
+							// Set the head and tail of the beginning of our neighbours list
+							neighbours.SetHead(hashGridList[xc][yc].pHead());
+							neighbours.SetTail(hashGridList[xc][yc].pTail());
+							bFoundFirstCell = true;
+						}
+						else
+						{
+							// We already have a neighbours list, so just add this cell's particles onto
+							// the end of it.
+							neighbours.Splice(hashGridList[xc][yc].pHead(), hashGridList[xc][yc].pTail());
+						}
+					}
+				}
+			}
+		}
+        
+		int neighboursListSize = neighbours.GetSize();
+		neighbours.ResetIterator();
+        
+		// Particle pressure calculated by particle proximity
+		// Pressures = 0 if all particles within range are idealRad distance away
+		float p = 0.0f;
+		float pnear = 0.0f;
+		for(int a = 0; a < neighboursListSize; a++)
+		{
+			int n = neighbours.GetNext();
+            
+			int j = n;
+            
+			float vx = xs[j]-xs[i];//liquid[j]->GetWorldCenter().x - liquid[i]->GetWorldCenter().x;
+			float vy = ys[j]-ys[i];//liquid[j]->GetWorldCenter().y - liquid[i]->GetWorldCenter().y;
+            
+			//early exit check
+			if(vx > -idealRad && vx < idealRad && vy > -idealRad && vy < idealRad)
+			{
+				float vlensqr = (vx * vx + vy * vy);
+				//within idealRad check
+				if(vlensqr < idealRad*idealRad)
+				{
+					vlen[a] = b2Sqrt(vlensqr);
+					if (vlen[a] < b2_linearSlop)
+					{
+//						vlen[a] = idealRad-.01f;
+                        vlen[a] = b2_linearSlop;
+					}
+					float oneminusq = 1.0f-(vlen[a] / idealRad);
+					p = (p + oneminusq*oneminusq);
+					pnear = (pnear + oneminusq*oneminusq*oneminusq);
+				}
+				else
+				{
+					vlen[a] = MAXFLOAT;
+				}
+			}
+		}
+        
+		// Now actually apply the forces
+		float pressure = (p - 5.0f) / 2.0f; //normal pressure term
+		float presnear = pnear / 2.0f; //near particles term
+		float changex = 0.0f;
+		float changey = 0.0f;
+        
+		neighbours.ResetIterator();
+        
+		for(int a = 0; a < neighboursListSize; a++)
+		{
+			int n = neighbours.GetNext();
+            
+			int j = n;
+            
+			float vx = xs[j]-xs[i];//liquid[j]->GetWorldCenter().x - liquid[i]->GetWorldCenter().x;
+			float vy = ys[j]-ys[i];//liquid[j]->GetWorldCenter().y - liquid[i]->GetWorldCenter().y;
+			if(vx > -idealRad && vx < idealRad && vy > -idealRad && vy < idealRad)
+			{
+				if(vlen[a] < idealRad)
+				{
+					float q = vlen[a] / idealRad;
+					float oneminusq = 1.0f-q;
+					float factor = oneminusq * (pressure + presnear * oneminusq) / (2.0f*vlen[a]);
+					float dx = vx * factor;
+					float dy = vy * factor;
+					float relvx = vxs[j] - vxs[i];
+					float relvy = vys[j] - vys[i];
+					factor = visc * oneminusq * deltaT;
+					dx -= relvx * factor;
+					dy -= relvy * factor;
+                    
+					xchange[j] += dx;
+					ychange[j] += dy;
+					changex -= dx;
+					changey -= dy;
+				}
+			}
+		}
+        
+		xchange[i] += changex;
+		ychange[i] += changey;
+        
+		// We've finished with this neighbours list, so go back and re-null-terminate all of the
+		// grid cells lists ready for the next particle's neighbours list.
+		[self resetGridTailPointers:i];
+	}
+	
+	for (int i=0; i < PARTICLES_COUNT; ++i)
+	{
+		liquid[i].mPosition += b2Vec2(xchange[i] / multiplier, ychange[i] / multiplier);
+        
+		b2Vec2 delta_velocity = b2Vec2(xchange[i] / (multiplier*deltaT), ychange[i] / (multiplier*deltaT));
+		liquid[i].mVelocity += delta_velocity;
+	}
 }
 
 -(void)checkBounds
@@ -529,10 +543,13 @@ inline int hashY(float y)
 				aabb.lowerBound.Set(minX, minY);
 				aabb.upperBound.Set(maxX, maxY);
                 
-                intersectQueryCallback->x = x;
-                intersectQueryCallback->y = y;
-                intersectQueryCallback->deltaT = deltaT;
-                WORLD->QueryAABB(intersectQueryCallback, aabb);
+				if (intersectQueryCallback)
+				{
+					intersectQueryCallback->x = x;
+					intersectQueryCallback->y = y;
+					intersectQueryCallback->deltaT = deltaT;
+					WORLD->QueryAABB(intersectQueryCallback, aabb);
+				}
 			}
 		}
 	}
@@ -616,8 +633,6 @@ bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nea
 	}
 }
 
-
-
 // Move the particle from inside a body to the nearest point outside, and (if appropriate), adjust
 // the particle's velocity
 void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, sParticle *liquid)
@@ -656,6 +671,7 @@ void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& norma
 	for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)
 	{
         b2Vec2 g = WORLD->GetGravity();
+		
         liquid[i].mVelocity.x += g.x * deltaT;
 		liquid[i].mVelocity.y += g.y * deltaT;
 		liquid[i].mPosition.x += liquid[i].mVelocity.x * deltaT;
@@ -666,7 +682,7 @@ void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& norma
 	
 	for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)
 	{
-		liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPosition.x, PTM_RATIO * liquid[i].mPosition.y);
+		liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPosition.x / CC_CONTENT_SCALE_FACTOR(), PTM_RATIO * liquid[i].mPosition.y / CC_CONTENT_SCALE_FACTOR());
 	}
 }
 
@@ -689,10 +705,13 @@ void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& norma
 				aabb.lowerBound.Set(minX, minY);
 				aabb.upperBound.Set(maxX, maxY);
                 
-                eulerIntersectQueryCallback->x = x;
-                eulerIntersectQueryCallback->y = y;
-                eulerIntersectQueryCallback->deltaT = deltaT;
-                WORLD->QueryAABB(eulerIntersectQueryCallback, aabb);
+				if (eulerIntersectQueryCallback)
+				{
+					eulerIntersectQueryCallback->x = x;
+					eulerIntersectQueryCallback->y = y;
+					eulerIntersectQueryCallback->deltaT = deltaT;
+					WORLD->QueryAABB(eulerIntersectQueryCallback, aabb);
+				}
 			}
 		}
 	}
