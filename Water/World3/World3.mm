@@ -409,7 +409,7 @@
 	b2Vec3 dir, accel;
 	b2Vec3 vnext;
 	b2Vec3 bmin, bmax;
-	b2Vec4 clr;
+//	b2Vec4 clr;
 	double adj;
 	float AL, AL2, SL, SL2, ss, radius;
 	float stiff, damp, speed, diff;
@@ -434,7 +434,8 @@
 	float*		pdensity = mDensity;
 	
 	// Advance each particle
-	for ( int n=0; n < NumPoints(); n++ ) {
+	for ( int n=0; n < 1/*NumPoints()*/; n++ )
+	{
 		
 		if ( mGridCell[n] == GRID_UNDEF) continue;
 		
@@ -527,7 +528,7 @@
 			norm.x = ( ppos->x - m_Vec[PPOINT_GRAV_POS].x );
 			norm.y = ( ppos->y - m_Vec[PPOINT_GRAV_POS].y );
 			norm.z = ( ppos->z - m_Vec[PPOINT_GRAV_POS].z );
-			norm.Normalize ();
+//			norm.Normalize ();
 			norm *= m_Param[PPOINT_GRAV_AMT];
 			accel -= norm;
 		}
@@ -568,19 +569,19 @@
 		 if ( v > 1.0 ) v = 1.0;
 		 *pclr = COLORA ( v, 1-v, 0, 1 );
 		 }*/
-		if ( speed > SL2*0.1) {
-			adj = SL2*0.1;
-			clr.fromClr ( *pclr );
-			clr += float(2/255.0);
-			clr.Clamp ( 1, 1, 1, 1);
-			*pclr = clr.toClr();
-		}
-		if ( speed < 0.01 ) {
-			clr.fromClr ( *pclr);
-			clr.x -= float(1/255.0);		if ( clr.x < 0.2 ) clr.x = 0.2;
-			clr.y -= float(1/255.0);		if ( clr.y < 0.2 ) clr.y = 0.2;
-			*pclr = clr.toClr();
-		}
+//		if ( speed > SL2*0.1) {
+//			adj = SL2*0.1;
+//			clr.fromClr ( *pclr );
+//			clr += float(2/255.0);
+//			clr.Clamp ( 1, 1, 1, 1);
+//			*pclr = clr.toClr();
+//		}
+//		if ( speed < 0.01 ) {
+//			clr.fromClr ( *pclr);
+//			clr.x -= float(1/255.0);		if ( clr.x < 0.2 ) clr.x = 0.2;
+//			clr.y -= float(1/255.0);		if ( clr.y < 0.2 ) clr.y = 0.2;
+//			*pclr = clr.toClr();
+//		}
 		
 		// Euler integration -------------------------------
 		/* accel += m_Gravity;
