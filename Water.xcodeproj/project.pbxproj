@@ -177,6 +177,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		396B3DBF16EE78E90005C6F0 /* vector_inline.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; path = vector_inline.h; sourceTree = "<group>"; };
 		396DC7B416DBA00700DD865A /* Water.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Water.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		396DC7B716DBA00700DD865A /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		396DC7B916DBA00700DD865A /* OpenGLES.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGLES.framework; path = System/Library/Frameworks/OpenGLES.framework; sourceTree = SDKROOT; };
@@ -412,7 +413,7 @@
 		3970859016E3E46E00BA8662 /* FluidHashList.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FluidHashList.h; sourceTree = "<group>"; };
 		3970859116E3E46E00BA8662 /* World2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = World2.h; sourceTree = "<group>"; };
 		3970859216E3E46E00BA8662 /* World2.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = World2.mm; sourceTree = "<group>"; };
-		3970859416E3E7BB00BA8662 /* World3.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = World3.h; sourceTree = "<group>"; };
+		3970859416E3E7BB00BA8662 /* World3.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; path = World3.h; sourceTree = "<group>"; };
 		3970859516E3E7BB00BA8662 /* World3.mm */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = World3.mm; sourceTree = "<group>"; };
 		39722CB816DCCFAE00224A03 /* Box2D.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Box2D.h; sourceTree = "<group>"; };
 		39722CB916DCCFAE00224A03 /* Box2DConfig.cmake */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Box2DConfig.cmake; sourceTree = "<group>"; };
@@ -1109,6 +1110,7 @@
 		39E8032816E2177700AD7928 /* World3 */ = {
 			isa = PBXGroup;
 			children = (
+				396B3DBF16EE78E90005C6F0 /* vector_inline.h */,
 				3970859416E3E7BB00BA8662 /* World3.h */,
 				3970859516E3E7BB00BA8662 /* World3.mm */,
 			);
