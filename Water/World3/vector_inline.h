@@ -13,18 +13,18 @@
 struct Vector2DC;
 struct Vector2DI;
 
-// Vector2DC Code Definition
-
-#define VTYPE		unsigned char
 #define VNAME		2DC
+#define VTYPE		unsigned char
 
+// Vector2DC Code Definition
 struct Vector2DC
 {
 	// Constructors/Destructors
-	Vector2DC(){x=0; y=0;};
-	Vector2DC (VTYPE xa, VTYPE ya) {x=xa; y=ya;}
-	Vector2DC (Vector2DC &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
-	Vector2DC (Vector2DI &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
+	Vector2DC();
+	Vector2DC (VTYPE xa, VTYPE ya);
+	Vector2DC (Vector2DC &op);
+	Vector2DC (Vector2DI &op);
+//	Vector2DC (Vector2DI &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
 //	Vector2DC (Vector2DF &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
 //	Vector2DC (Vector3DC &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
 //	Vector2DC (Vector3DI &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
@@ -120,7 +120,7 @@ struct Vector2DI
 	// Constructors/Destructors
 	Vector2DI() {x=0; y=0;}
 	Vector2DI (const VTYPE xa, const VTYPE ya) {x=xa; y=ya;}
-//	Vector2DI (const Vector2DC &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
+	Vector2DI (const Vector2DC &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
 //	Vector2DI (const Vector2DI &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
 //	Vector2DI (const Vector2DF &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
 //	Vector2DI (const Vector3DC &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
@@ -809,6 +809,18 @@ struct Vector2DI
 //}
 // double Vector4DF::Length (void) { double n; n = (double) x*x + (double) y*y + (double) z*z + (double) w*w; if (n != 0.0) return sqrt(n); return 0.0; }
 // VTYPE *Vector4DF::Data (void)			{return &x;}
-//
-//#undef VTYPE
-//#undef VNAME
+
+#undef VTYPE
+#undef VNAME
+
+#define VNAME		2DC
+#define VTYPE		unsigned char
+
+// Vector2DC implementation
+Vector2DC::Vector2DC(){x=0; y=0;};
+Vector2DC::Vector2DC (VTYPE xa, VTYPE ya) {x=xa; y=ya;}
+Vector2DC::Vector2DC (Vector2DC &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
+Vector2DC::Vector2DC (Vector2DI &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
+
+#undef VTYPE
+#undef VNAME
