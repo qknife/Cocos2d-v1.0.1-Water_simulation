@@ -135,7 +135,7 @@ static CGSize size;
 	switch (currentSceneIndex)
 	{
 		case 0:
-			currentScene = [World3 node];
+			currentScene = [World1 node];
 			break;
 		case 1:
 			currentScene = [World2 node];
