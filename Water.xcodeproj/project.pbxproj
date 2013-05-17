@@ -121,7 +121,6 @@
 		396DC98B16DBA00E00DD865A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 396DC98A16DBA00E00DD865A /* main.m */; };
 		396DC98E16DBA00E00DD865A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 396DC98D16DBA00E00DD865A /* AppDelegate.mm */; };
 		3970859316E3E46E00BA8662 /* World2.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3970859216E3E46E00BA8662 /* World2.mm */; };
-		3970859616E3E7BB00BA8662 /* World3.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3970859516E3E7BB00BA8662 /* World3.mm */; };
 		39722D1C16DCCFAE00224A03 /* Box2DConfig.cmake in Resources */ = {isa = PBXBuildFile; fileRef = 39722CB916DCCFAE00224A03 /* Box2DConfig.cmake */; };
 		39722D1D16DCCFAE00224A03 /* CMakeLists.txt in Resources */ = {isa = PBXBuildFile; fileRef = 39722CBA16DCCFAE00224A03 /* CMakeLists.txt */; };
 		39722D1E16DCCFAE00224A03 /* b2BroadPhase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 39722CBC16DCCFAE00224A03 /* b2BroadPhase.cpp */; };
@@ -174,6 +173,7 @@
 		39E8032B16E22E6200AD7928 /* World1.mm in Sources */ = {isa = PBXBuildFile; fileRef = 39E8032A16E22E6200AD7928 /* World1.mm */; };
 		39E8033016E2337F00AD7928 /* DLRenderTexture.m in Sources */ = {isa = PBXBuildFile; fileRef = 39E8032D16E2337F00AD7928 /* DLRenderTexture.m */; };
 		39E8033116E2337F00AD7928 /* GLES-Render.mm in Sources */ = {isa = PBXBuildFile; fileRef = 39E8032F16E2337F00AD7928 /* GLES-Render.mm */; };
+		F55D94D51741019B00768F88 /* World3.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3970859516E3E7BB00BA8662 /* World3.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -1335,7 +1335,7 @@
 				39E8033016E2337F00AD7928 /* DLRenderTexture.m in Sources */,
 				39E8033116E2337F00AD7928 /* GLES-Render.mm in Sources */,
 				3970859316E3E46E00BA8662 /* World2.mm in Sources */,
-				3970859616E3E7BB00BA8662 /* World3.mm in Sources */,
+				F55D94D51741019B00768F88 /* World3.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1346,6 +1346,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CODE_SIGN_IDENTITY = "iPhone Developer: Anton Fedoruk (X629J742FG)";
+				"CODE_SIGN_IDENTITY[sdk=*]" = "iPhone Developer: Anton Fedoruk (X629J742FG)";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1358,6 +1360,8 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
+				PROVISIONING_PROFILE = "D19E7D9A-89C5-498B-A026-2A149FC878BC";
+				"PROVISIONING_PROFILE[sdk=*]" = "D19E7D9A-89C5-498B-A026-2A149FC878BC";
 				SDKROOT = iphoneos;
 			};
 			name = Debug;

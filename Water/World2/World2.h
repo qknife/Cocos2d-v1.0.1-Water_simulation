@@ -54,7 +54,7 @@ protected:
     cFluidHashList (*hashGridList)[hashHeight];
     sParticle *liquid;
 };
-
+/*
 class QueryWorldPostIntersect : public b2QueryCallback
 {
 public:
@@ -72,11 +72,11 @@ protected:
     cFluidHashList (*hashGridList)[hashHeight];
     sParticle *liquid;
 };
-
+//*/
 @interface World2 : CCLayer<WorldSceneProtocol>
 {
     QueryWorldInteractions *intersectQueryCallback;
-    QueryWorldPostIntersect *eulerIntersectQueryCallback;
+   // QueryWorldPostIntersect *eulerIntersectQueryCallback;
     
     // MAGIC NUMBERS
 	float totalMass;

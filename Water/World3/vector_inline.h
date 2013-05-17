@@ -20,7 +20,7 @@ struct Vector2DI;
 struct Vector2DC
 {
 	// Constructors/Destructors
-	Vector2DC();
+	Vector2DC(){x=0; y=0;};
 	Vector2DC (VTYPE xa, VTYPE ya);
 	Vector2DC (Vector2DC &op);
 	Vector2DC (Vector2DI &op);
@@ -813,14 +813,14 @@ struct Vector2DI
 #undef VTYPE
 #undef VNAME
 
-#define VNAME		2DC
-#define VTYPE		unsigned char
-
-// Vector2DC implementation
-Vector2DC::Vector2DC(){x=0; y=0;};
-Vector2DC::Vector2DC (VTYPE xa, VTYPE ya) {x=xa; y=ya;}
-Vector2DC::Vector2DC (Vector2DC &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
-Vector2DC::Vector2DC (Vector2DI &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
-
-#undef VTYPE
-#undef VNAME
+//#define VNAME		2DC
+//#define VTYPE		unsigned char
+//
+//// Vector2DC implementation
+//Vector2DC::Vector2DC(){x=0; y=0;};
+//Vector2DC::Vector2DC (VTYPE xa, VTYPE ya) {x=xa; y=ya;}
+//Vector2DC::Vector2DC (Vector2DC &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
+//Vector2DC::Vector2DC (Vector2DI &op) {x=(VTYPE) op.x; y=(VTYPE) op.y;}
+//
+//#undef VTYPE
+//#undef VNAME

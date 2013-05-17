@@ -15,14 +15,15 @@
 
 #define PTM_RATIO 32.0f
 
-#define MW(_p_) (SIZE.width / 100.0f * _p_) / PTM_RATIO
-#define MH(_p_) (SIZE.height / 100.0f * _p_) / PTM_RATIO
 
 #define WORLD [Common world]
 #define BATCH [Common batch]
 #define SIZE [Common size]
 #define SCENE [Common getCurrentScene]
 #define PARTICLES_COUNT [Common getParticlesCount]
+
+#define MW(_p_) (SIZE.width / 100.0f * _p_) / PTM_RATIO
+#define MH(_p_) (SIZE.height / 100.0f * _p_) / PTM_RATIO
 
 @interface Common : NSObject
 

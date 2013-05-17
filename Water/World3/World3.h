@@ -1,5 +1,7 @@
 #import "WorldSceneProtocol.h"
 #import "Common.h"
+#import "FluidHashList.h"
+#import <Foundation/Foundation.h>
 
 #include <iostream>
 #include <vector>
@@ -104,6 +106,10 @@
 
 #define BFLUID				2
 #define DWORD int
+
+#define hashWidth		(50)
+#define hashHeight		(50)
+
 struct NList
 {
 	int num;
@@ -112,7 +118,7 @@ struct NList
 
 struct Fluid
 {						// offset - TOTAL: 72 (must be multiple of 12)
-	b2Vec3 pos;			// 0
+	b2Vec3 pos;			        // 0
 	b2Vec3		vel;			// 12
 	b2Vec3		veleval;		// 24
 	b2Vec3		force;			// 36
@@ -124,10 +130,49 @@ struct Fluid
 	int			padding;		// 68
 };
 
+struct sPart
+{
+    CCSprite * sp;
+    b2Vec2				    mPos;
+    b2Vec2				    mVel;
+    float                   ParticleRadius; // радиус симулируемых частиц
+
+    float                   mPress;     //  давление
+    bool                    isVisible;  //  признак отображения
+    
+};
+
+
+class QueWorldInteractions : public b2QueryCallback
+{
+public:
+    QueWorldInteractions(cFluidHashList (*grid)[hashHeight], sPart *particles,float _knorm, float _ktang)
+	{
+        hashGridList = grid;
+        liquid = particles;
+        knorm = _knorm;
+        ktang = _ktang;
+    };
+    
+    bool ReportFixture(b2Fixture* fixture);
+    int x, y;
+    float deltaT;
+    
+protected:
+    cFluidHashList (*hashGridList)[hashHeight];
+    sPart *liquid;
+    float                   knorm;          //  нормальный коэффициент восстановления
+    float                   ktang;          //  тангенциальный коэффициент восстановления
+    float                   mju;            //  вязкость
+    float                   mro;            //  плотность
+};
+//*/
+
+
 @interface World3 : CCLayer <WorldSceneProtocol>
 {
 	std::string				mSceneName;
-	
+   QueWorldInteractions *intersectQueryCallback;
 	// Time
 	int							m_Frame;
 	double						m_DT;
@@ -135,7 +180,7 @@ struct Fluid
 	
 	// Simulation Parameters
 	double						m_Param [ MAX_PARAM ];			// see defines above
-	b2Vec3					m_Vec [ MAX_PARAM ];
+	b2Vec3					    m_Vec [ MAX_PARAM ];
 	bool						m_Toggle [ MAX_PARAM ];
 	
 	// SPH Kernel functions
@@ -145,14 +190,12 @@ struct Fluid
 	int						mNumPoints;
 	int						mMaxPoints;
 	int						mGoodPoints;
-	b2Vec3*				mPos;
 	int*					mClr;
-	b2Vec3*				mVel;
-	b2Vec3*				mVelEval;
+	b2Vec2*				    mVelEval;
 	unsigned short*			mAge;
 	float*					mPressure;
 	float*					mDensity;
-	b2Vec3*				mForce;
+	b2Vec3*				    mForce;
 	uint*					mGridCell;
 	uint*					mClusterCell;
 	uint*					mGridNext;
@@ -163,11 +206,11 @@ struct Fluid
 	uint*					m_Grid;
 	uint*					m_GridCnt;
 	int						m_GridTotal;			// total # cells
-	b2Vec3				m_GridRes;				// resolution in each axis
-	b2Vec3				m_GridMin;				// volume of grid (may not match domain volume exactly)
-	b2Vec3				m_GridMax;
-	b2Vec3				m_GridSize;				// physical size in each axis
-	b2Vec3				m_GridDelta;
+	b2Vec3			     	m_GridRes;				// resolution in each axis
+	b2Vec3				    m_GridMin;				// volume of grid (may not match domain volume exactly)
+	b2Vec3				    m_GridMax;
+	b2Vec3				    m_GridSize;				// physical size in each axis
+	b2Vec3				    m_GridDelta;
 	int						m_GridSrch;
 	int						m_GridAdjCnt;
 	int						m_GridAdj[216];
@@ -200,6 +243,14 @@ struct Fluid
 	uint*					mSaveNdx;
 	uint*					mSaveCnt;
 	uint*					mSaveNeighbors;
+    sPart*                  liquid;
+    float                   knorm;          //  нормальный коэффициент восстановления
+    float                   ktang;          //  тангенциальный коэффициент восстановления
+    float                   mju;            //  вязкость
+    float                   mro;            //  плотность
+    
+    cFluidHashList          hashGridList[hashWidth][hashHeight];
+    
 }
 
 // Particle Utilities

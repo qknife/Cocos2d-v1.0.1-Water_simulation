@@ -56,7 +56,8 @@
 	
 	for(NSInteger i = 0; i < diff_; i++)
 	{
-		[self addNewSpriteWithCoords:ccp((int)size.width / 100 * 23 + random()%(int)size.width / 20, size.height-(random()%(int)size.height / 5))];
+		[self addNewSpriteWithCoords:ccp((int)size.width / 100 * 23
+                                         + random()%(int)size.width / 20, size.height-(random()%(int)size.height / 4))];
 	}
 }
 

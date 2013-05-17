@@ -1,6 +1,3 @@
-//  Created by Vasiliy Yanushevich on 11/2/12.
-//  Copyright 2012 Vasiliy Yanushevich. All rights reserved.
-//
 
 #import "World2.h"
 #import "cmath"
@@ -96,34 +93,34 @@ bool QueryWorldInteractions::ReportFixture(b2Fixture* fixture)
                 liquid[particleIdx].mVelocity += pointVelocityAbsolute;
             }
         }
-    }
+    } //*/
     return true;
 }
-
-bool QueryWorldPostIntersect::ReportFixture(b2Fixture *fixture)
-{
-    int numParticles = hashGridList[x][y].GetSize();
-    hashGridList[x][y].ResetIterator();
-
-    for(int i = 0; i < numParticles; i++)
-    {
-        int particleIdx = hashGridList[x][y].GetNext();
-        
-        b2Vec2 particlePos = liquid[particleIdx].mPosition;
-        if(fixture->GetBody()->GetType() == b2_dynamicBody)
-        {
-            b2Vec2 nearestPos(0,0);
-            b2Vec2 normal(0,0);
-            bool inside = ParticleSolidCollision(fixture, particlePos, nearestPos, normal);
-            
-            if (inside)
-            {
-                SeparateParticleFromBody(particleIdx, nearestPos, normal, liquid);
-            }
-        }
-    }
-    return true;
-}
+/*
+ bool QueryWorldPostIntersect::ReportFixture(b2Fixture *fixture)
+ {
+ int numParticles = hashGridList[x][y].GetSize();
+ hashGridList[x][y].ResetIterator();
+ 
+ for(int i = 0; i < numParticles; i++)
+ {
+ int particleIdx = hashGridList[x][y].GetNext();
+ 
+ b2Vec2 particlePos = liquid[particleIdx].mPosition;
+ if(fixture->GetBody()->GetType() == b2_dynamicBody)
+ {
+ b2Vec2 nearestPos(0,0);
+ b2Vec2 normal(0,0);
+ bool inside = ParticleSolidCollision(fixture, particlePos, nearestPos, normal);
+ 
+ if (inside)
+ {
+ SeparateParticleFromBody(particleIdx, nearestPos, normal, liquid);
+ }
+ }
+ }
+ return true;
+ }//*/
 
 static float fluidMinX;
 static float fluidMaxX;
@@ -191,7 +188,7 @@ inline int hashY(float y)
 	void *tmp = liquid;
 	
 	intersectQueryCallback = NULL;
-	eulerIntersectQueryCallback = NULL;
+    //	eulerIntersectQueryCallback = NULL;
 	
 	liquid = (sParticle *)calloc(sizeof(sParticle), PARTICLES_COUNT + diff_);
 	
@@ -199,7 +196,7 @@ inline int hashY(float y)
 	if (liquid)
 	{
 		intersectQueryCallback = new QueryWorldInteractions(hashGridList, liquid);
-        eulerIntersectQueryCallback = new QueryWorldPostIntersect(hashGridList, liquid);
+        //      eulerIntersectQueryCallback = new QueryWorldPostIntersect(hashGridList, liquid);
 	}
 	
 	// if was old alloc - replace data to new alloc
@@ -220,10 +217,17 @@ inline int hashY(float y)
 	
 	// Particles
 	float massPerParticle = totalMass / (PARTICLES_COUNT + diff_);
-
+    
 	for(NSInteger i = PARTICLES_COUNT; i < PARTICLES_COUNT + diff_; i++)
 	{
-		CGPoint p = ccp((int)size.width / 100 * 23 + random()%(int)size.width / 20, size.height-(random()%(int)size.height / 5));
+		CGPoint p = ccp(
+                        (int)size.width / 100 * (24 + 3*sin(6.28f*i/(PARTICLES_COUNT + diff_)) ),
+                        // (int)size.width / 100 * 23 + random()%(int)size.width / 20,
+                        (int)size.height / 100 * (90 - 10*cos(6.28f*i/(PARTICLES_COUNT + diff_)) )
+                        //   size.height-(random()%(int)size.height / 5)
+                        
+                        
+                        );;
 		
 		liquid[i].mPosition = b2Vec2(p.x * CC_CONTENT_SCALE_FACTOR() / PTM_RATIO, p.y * CC_CONTENT_SCALE_FACTOR() / PTM_RATIO);
 		liquid[i].mVelocity = b2Vec2(0.0f, 0.0f);
@@ -263,14 +267,29 @@ inline int hashY(float y)
 	{
 		return;
 	}
-
+    
 	// Update positions, and hash them
-    [self stepFluidParticles:dt];
+    for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)
+	{
+        b2Vec2 g = WORLD->GetGravity();
+		
+        liquid[i].mVelocity.x += g.x * dt;
+		liquid[i].mVelocity.y += g.y * dt;
+		liquid[i].mPosition.x += liquid[i].mVelocity.x * dt;
+		liquid[i].mPosition.y += liquid[i].mVelocity.y * dt;
+	}
+	
+	[self checkBounds];
+	
+	for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)
+	{
+		liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPosition.x / CC_CONTENT_SCALE_FACTOR(), PTM_RATIO * liquid[i].mPosition.y / CC_CONTENT_SCALE_FACTOR());
+	}
     [self hashLocations];
-	[self applyLiquidConstraint:dt];
-    [self processWorldInteractions:dt];
-    [self dampenLiquid];
-	[self resolveIntersections:dt];
+    [self applyLiquidConstraint:dt];
+    [self processWorldInteractions:dt];// реакция на барьеры
+    //   [self dampenLiquid];
+	//[self resolveIntersections:dt];
 }
 
 -(void)clearHashGrid
@@ -416,7 +435,7 @@ inline int hashY(float y)
 					vlen[a] = b2Sqrt(vlensqr);
 					if (vlen[a] < b2_linearSlop)
 					{
-//						vlen[a] = idealRad-.01f;
+                        //						vlen[a] = idealRad-.01f;
                         vlen[a] = b2_linearSlop;
 					}
 					float oneminusq = 1.0f-(vlen[a] / idealRad);
@@ -567,7 +586,7 @@ bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nea
 	{
 		b2CircleShape* pCircleShape = static_cast<b2CircleShape*>(fixture->GetShape());
 		const b2Transform& xf = fixture->GetBody()->GetTransform();
-		float radius = pCircleShape->m_radius + particleRadius;
+		float radius = pCircleShape->m_radius + 2 * particleRadius;
 		b2Vec2 circlePos = xf.p + pCircleShape->m_p;
 		b2Vec2 delta = particlePos - circlePos;
 		if (delta.LengthSquared() > radius * radius)
@@ -603,10 +622,10 @@ bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nea
         
 		for (int i = 0; i < numVerts ; ++i)
 		{
-            b2Vec2 vertex = vertices[i] + particleRadius * normals[i] - particlePos;
+            b2Vec2 vertex = vertices[i] + 4 * particleRadius * normals[i] - particlePos;
 			float distance = b2Dot(normals[i], vertex);
             
-			if (distance < 0.0f)
+			if (distance < 0)
 			{
 				return false;
 			}
@@ -633,7 +652,7 @@ bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nea
 	}
 }
 
-// Move the particle from inside a body to the nearest point outside, and (if appropriate), adjust
+// Move the partice from inside a body to the nearest point outside, and (if appropriate), adjust
 // the particle's velocity
 void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, sParticle *liquid)
 {
@@ -685,36 +704,36 @@ void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& norma
 		liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPosition.x / CC_CONTENT_SCALE_FACTOR(), PTM_RATIO * liquid[i].mPosition.y / CC_CONTENT_SCALE_FACTOR());
 	}
 }
-
--(void)resolveIntersections:(float)deltaT
-{
-	// Iterate through the grid, and do an AABB test for every grid containing particles
-	for (int x = 0; x < hashWidth; ++x)
-	{
-		for (int y = 0; y < hashWidth; ++y)
-		{
-			if(!hashGridList[x][y].IsEmpty())
-			{
-				float minX = myMap((float)x, 0, hashWidth, fluidMinX, fluidMaxX);
-				float maxX = myMap((float)x+1, 0, hashWidth, fluidMinX, fluidMaxX);
-				float minY = myMap((float)y, 0, hashHeight, fluidMinY, fluidMaxY);
-				float maxY = myMap((float)y+1, 0, hashHeight, fluidMinY, fluidMaxY);
-                
-				b2AABB aabb;
-                
-				aabb.lowerBound.Set(minX, minY);
-				aabb.upperBound.Set(maxX, maxY);
-                
-				if (eulerIntersectQueryCallback)
-				{
-					eulerIntersectQueryCallback->x = x;
-					eulerIntersectQueryCallback->y = y;
-					eulerIntersectQueryCallback->deltaT = deltaT;
-					WORLD->QueryAABB(eulerIntersectQueryCallback, aabb);
-				}
-			}
-		}
-	}
-}
+/*
+ -(void)resolveIntersections:(float)deltaT
+ {
+ // Iterate through the grid, and do an AABB test for every grid containing particles
+ for (int x = 0; x < hashWidth; ++x)
+ {
+ for (int y = 0; y < hashWidth; ++y)
+ {
+ if(!hashGridList[x][y].IsEmpty())
+ {
+ float minX = myMap((float)x, 0, hashWidth, fluidMinX, fluidMaxX);
+ float maxX = myMap((float)x+1, 0, hashWidth, fluidMinX, fluidMaxX);
+ float minY = myMap((float)y, 0, hashHeight, fluidMinY, fluidMaxY);
+ float maxY = myMap((float)y+1, 0, hashHeight, fluidMinY, fluidMaxY);
+ 
+ b2AABB aabb;
+ 
+ aabb.lowerBound.Set(minX, minY);
+ aabb.upperBound.Set(maxX, maxY);
+ 
+ if (eulerIntersectQueryCallback)
+ {
+ eulerIntersectQueryCallback->x = x;
+ eulerIntersectQueryCallback->y = y;
+ eulerIntersectQueryCallback->deltaT = deltaT;
+ WORLD->QueryAABB(eulerIntersectQueryCallback, aabb);
+ }
+ }
+ }
+ }
+ }//*/
 
 @end

@@ -138,10 +138,10 @@ static CGSize size;
 			currentScene = [World1 node];
 			break;
 		case 1:
-			currentScene = [World2 node];
+			currentScene = [World3 node];
 			break;
 		case 2:
-			currentScene = [World3 node];
+			currentScene = [World2 node];
 			break;
 	}
 	
@@ -210,8 +210,8 @@ static CGSize size;
 	b2PolygonShape sd;
 	gFix.shape = &sd;
 	
-	int const obstacles_count = 9;
-	float data[obstacles_count][5] = {{1,3,49,49,-1.57f / 2},{5,1,40,47,0},{1,4,34,50,0},{7,1,23,66,-1.57f / 2},{1,7,16,78,0},{9,1,40,66,-1.57f / 2},{1,14,31,86,0},{1,11,63,53,0},{1,5,59,40,-1.57f / 2}};
+	int const obstacles_count = 10;
+	float data[obstacles_count][5] = {{1,3,49,49,-1.57f / 2},{5,1,40,47,0},{1,4,32,48,0},{7,1,23,66,-1.57f / 2},{1,7,16,78,0},{9,1,40,66,-1.57f / 2},{1,14,31,86,0},{1,11,63,53,0},{1,5,59,40,-1.57f / 2}};
 	for (int i = 0; i < obstacles_count; i++)
 	{
 		sd.SetAsBox(data[i][0] * UNIT, data[i][1] * UNIT,b2Vec2(MW(data[i][2]),MH(data[i][3])),data[i][4]);
@@ -235,7 +235,7 @@ static CGSize size;
 	CGSize size = [CCDirector sharedDirector].winSize;
 	
 	// set up sprite
-	batch = [[CCSpriteBatchNode batchNodeWithFile:@"drop.png" capacity:1000] retain];
+	batch = [[CCSpriteBatchNode batchNodeWithFile:@"drop.png" capacity:4000] retain];
 	
 	// render texture
 	renderTexture = [DLRenderTexture renderTextureWithWidth:size.width height:size.height pixelFormat:kCCTexture2DPixelFormat_RGBA4444];
@@ -247,7 +247,7 @@ static CGSize size;
 	
 	// set sprites
 	particlesCount = 0;
-	[self setParticlesCount:125];
+	[self setParticlesCount:500];//125
 }
 
 +(void)cleanScene
@@ -342,9 +342,9 @@ static CGSize size;
 {
 	glDisable(GL_ALPHA_TEST);
 	
-    [renderTexture beginWithClear:0 g:0 b:0 a:0];
+//    [renderTexture beginWithClear:0 g:0 b:0 a:0];
     [batch visit];
-    [renderTexture end];
+//    [renderTexture end];
 
 #if 1 == DEBUG_DRAW
 	glPushMatrix();
@@ -367,7 +367,7 @@ static CGSize size;
     
 	//#define kFilterFactor 0.05f
 #define kFilterFactor 1.0f	// don't use filter. the code is here just as an example
-    
+                           //Users/kvv_hacker/projects/Water/Water/Common/Common.mm
 	float accelX = (float) acceleration_.x * kFilterFactor + (1- kFilterFactor)*prevX;
 	float accelY = (float) acceleration_.y * kFilterFactor + (1- kFilterFactor)*prevY;
     
