@@ -257,7 +257,7 @@ inline int hashY(float y)
         liquid[i].mVel = b2Vec2(0, 0);
         
 		liquid[i].ParticleRadius = 0.2f;
-        liquid[i].isVisible = true;
+        liquid[i].isVisible = YES;
      }
 }
 
@@ -412,6 +412,7 @@ inline int hashY(float y)
         liquid[i].mPos.x += liquid[i].mVel.x * dt;
 		liquid[i].mPos.y += liquid[i].mVel.y * dt;
         if (liquid[i].mPos.y<0.0f) liquid[i].mVel.y*=-0.9f;
+		liquid[i].sp.visible = liquid[i].isVisible;
        }
     
     [self Check];

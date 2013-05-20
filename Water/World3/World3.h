@@ -138,7 +138,7 @@ struct sPart
     float                   ParticleRadius; // радиус симулируемых частиц
 
     float                   mPress;     //  давление
-    bool                    isVisible;  //  признак отображения
+    BOOL                    isVisible;  //  признак отображения
     
 };
 
