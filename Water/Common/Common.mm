@@ -135,7 +135,7 @@ static CGSize size;
 	switch (currentSceneIndex)
 	{
 		case 0:
-			currentScene = [World1 node];
+			currentScene = [World3 node];
 			break;
 		case 1:
 			currentScene = [World3 node];
@@ -247,7 +247,7 @@ static CGSize size;
 	
 	// set sprites
 	particlesCount = 0;
-	[self setParticlesCount:500];//125
+	[self setParticlesCount:1000];//125
 }
 
 +(void)cleanScene
@@ -342,9 +342,9 @@ static CGSize size;
 {
 	glDisable(GL_ALPHA_TEST);
 	
-//    [renderTexture beginWithClear:0 g:0 b:0 a:0];
+    [renderTexture beginWithClear:0 g:0 b:0 a:0];
     [batch visit];
-//    [renderTexture end];
+    [renderTexture end];
 
 #if 1 == DEBUG_DRAW
 	glPushMatrix();

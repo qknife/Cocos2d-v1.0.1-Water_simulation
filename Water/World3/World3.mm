@@ -2,8 +2,8 @@
 #import "World3.h"
 #import "Common.h"
 
-bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nearestPos, b2Vec2& impactNormal);
-void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, sPart *liquid,float knorm,float ktang);
+bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nearestPos, b2Vec2& impactNormal, float particleRadius);
+void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, sPart *liquid,float knorm,float ktang);
 //*
 bool QueWorldInteractions::ReportFixture(b2Fixture* fixture)
 {
@@ -25,18 +25,18 @@ bool QueWorldInteractions::ReportFixture(b2Fixture* fixture)
             // can cause leaking and tunnelling, particularly for high-velocity particles.
             // Perhaps some kind of approach involving raycasting between the old particle
             // position and the current one would work better?
-            bool inside = ParticleSolidCollision(fixture, particlePos, nearestPos, normal);
+            bool inside = ParticleSolidCollision3(fixture, particlePos, nearestPos, normal, PartRadius);
             
             if (inside)
             {
-                SeparateParticleFromBody(particleIdx, nearestPos, normal, liquid, knorm, ktang);
+                SeparateParticleFromBody3(particleIdx, nearestPos, normal, liquid, knorm, ktang);
             }
         }
         else
         {
             b2Vec2 nearestPos(0,0);
             b2Vec2 normal(0,0);
-            bool inside = ParticleSolidCollision(fixture, particlePos, nearestPos, normal);
+            bool inside = ParticleSolidCollision3(fixture, particlePos, nearestPos, normal, PartRadius);
             
             if (inside)
             {
@@ -175,8 +175,13 @@ inline int hashY(float y)
 		fluidMaxX = MW(100);
 		fluidMinY = MH(0);
 		fluidMaxY = MH(100);
-        knorm = 0.5f;
-        ktang = 0.99f;
+        knorm = 0.6f;
+        ktang = 0.95f;
+        SmoothRad = 0.35f;
+        PressPerDensCoef = 2.0f;
+        mDensity0 = 0.5f;
+        ParticleRadius = 1.0f;
+        mju = 0.001f;
         [self Setup:true];
         
         // param
@@ -217,11 +222,11 @@ inline int hashY(float y)
     //	eulerIntersectQueryCallback = NULL;
 	
 	liquid = (sPart *)calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
-	
+	InHashCellIndexes = (int *) calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
 	// recreate delegates
 	if (liquid)
 	{
-		intersectQueryCallback = new QueWorldInteractions(hashGridList, liquid, knorm, ktang);
+		intersectQueryCallback = new QueWorldInteractions(hashGridList, liquid, knorm, ktang, ParticleRadius);
         //      eulerIntersectQueryCallback = new QueryWorldPostIntersect(hashGridList, liquid);
 	}
 	
@@ -255,17 +260,16 @@ inline int hashY(float y)
         liquid[i].sp = sprite; 
         liquid[i].mPos = b2Vec2(p.x * CC_CONTENT_SCALE_FACTOR() / PTM_RATIO, p.y * CC_CONTENT_SCALE_FACTOR() / PTM_RATIO);
         liquid[i].mVel = b2Vec2(0, 0);
-        
-		liquid[i].ParticleRadius = 0.2f;
+        liquid[i].mPress = 1;
+	
         liquid[i].isVisible = YES;
+        liquid[i].mMas  = 0.001f;
      }
 }
-
 
 -(void)particlesCountDown:(NSInteger)diff_
 {
 }
-
 
 -(void) Check
 {
@@ -274,30 +278,80 @@ inline int hashY(float y)
         if (liquid[i].mPos.y < (SIZE.height / 10) / PTM_RATIO)
         {
             liquid[i].mPos = b2Vec2(liquid[i].mPos.x, (SIZE.height / 10) / PTM_RATIO);
-            liquid[i].mVel.y *= -0.9f;
+            liquid[i].mVel.y *= -0.8f;
         }
         else if (liquid[i].mPos.y > SIZE.height / PTM_RATIO)
         {
             liquid[i].mPos = b2Vec2(liquid[i].mPos.x, SIZE.height / PTM_RATIO);
-           liquid[i].mVel.y *= -0.9f;
+           liquid[i].mVel.y *= -0.8f;
         }  
         if (liquid[i].mPos.x < 0)
         {
             liquid[i].mPos= b2Vec2(0, liquid[i].mPos.y);
-            liquid[i].mVel.x *= -0.9f;
+            liquid[i].mVel.x *= -0.8f;
         }
         else if (liquid[i].mPos.x > SIZE.width / PTM_RATIO)
         {
             liquid[i].mPos = b2Vec2(SIZE.width / PTM_RATIO, liquid[i].mPos.y);
-            liquid[i].mVel.x *= -0.9f;
+            liquid[i].mVel.x *= -0.8f;
         }
     }
 }
 
-//*
+-(float)WPreKernel:(b2Vec2)diff_r
+  {
+   float dr2=diff_r.x*diff_r.x+diff_r.y*diff_r.y;
+   if ( dr2 < SmoothRad * SmoothRad)
+    {
+        return 6 * pow(SmoothRad - sqrt(dr2), 2)/(3.141592654 * pow(SmoothRad, 4));
+    }
+   else
+    {
+        return 0;
+    }
+  }
+
+-(b2Vec2)NablaWPreKernel:(b2Vec2) diff_r
+{
+    b2Vec2 dif10, dif01, ForReturned;
+    dif10.x=diff_r.x+eps;
+    dif10.y=diff_r.y;
+    dif01.x=diff_r.x;
+    dif01.y=diff_r.y+eps;
+    float Wk00 = [self WPreKernel:diff_r], Wk10 =[self WPreKernel:dif10], Wk01 =[self WPreKernel:dif01];
+    ForReturned.x = (Wk10 - Wk00)/eps;
+    ForReturned.y = (Wk01 - Wk00)/eps;
+    return ForReturned;
+}
+/*
+-(float)WViskKernel: (float)diff_x  : (float) diff_y
+{
+    float dr2=sqrt(diff_x * diff_x+diff_y * diff_y);
+    if ( dr2 < SmoothRad)
+    {
+        return 12 * (-dr2*dr2/(SmoothRad*SmoothRad)+dr2/SmoothRad+SmoothRad/dr2-1)/(14 * 3.141592654f * pow(SmoothRad, 2));
+    }
+    else
+    {
+        return 0;
+    }
+}
+//*/
+-(float)LaplasWViskKernel:(b2Vec2) diff_r
+{
+    float dr2=diff_r.x*diff_r.x+diff_r.y*diff_r.y;
+    if ( dr2 < SmoothRad * SmoothRad)
+    {
+        return SmoothRad-sqrt(dr2);
+    }
+    else
+    {
+        return 0;
+    }
+}//*/
+
 -(void)processWorldInteractions:(float)deltaT
 {
-  float partRad = liquid[0].ParticleRadius;
   for(int a = 0; a < hashWidth; a++)
 	{
 		for(int b = 0; b < hashHeight; b++)
@@ -305,18 +359,79 @@ inline int hashY(float y)
 			hashGridList[a][b].Clear();
 		}
 	}
-    
   for(int a = 0; a < mNumPoints; a++)
 	{
+        liquid[a].isVisible = YES;
 		int hcell = myMap(liquid[a].mPos.x, fluidMinX, fluidMaxX, 0, hashWidth-.001f);
-		int vcell = myMap(liquid[a].mPos.y, fluidMinY, fluidMaxY, 0, hashWidth-.001f);
+		int vcell = myMap(liquid[a].mPos.y, fluidMinY, fluidMaxY, 0, hashHeight-.001f);
         
 		if(hcell > -1 && hcell < hashWidth && vcell > -1 && vcell < hashHeight)
 		{
 			hashGridList[hcell][vcell].PushBack(a);
 		}
     }
-    //*/
+  //*/////////////////////////////////// ФИЗИКА!!! /////////////////////////////////
+  for(int a = 0; a < hashWidth; a++)
+	{
+		for(int b = 0; b < hashHeight; b++)
+		{
+			int couNeighBoords = 0;
+            hashGridList[a][b].ResetIterator();
+            InHashCellIndexes[couNeighBoords] = hashGridList[a][b].GetNext();
+            while (InHashCellIndexes[couNeighBoords]>-1)
+              {
+                  couNeighBoords++;
+                  InHashCellIndexes[couNeighBoords] = hashGridList[a][b].GetNext();
+              }
+            //  давление
+            for (int i=0; i < couNeighBoords; i++)
+              {
+               for (int j = 0; j < couNeighBoords; j++)
+                if  (i != j)
+                 {int a1 = InHashCellIndexes[i],
+                      a2 = InHashCellIndexes[j];
+                     b2Vec2 Dr_=liquid[a1].mPos-liquid[a2].mPos;
+                     float Dr_mod=sqrt(Dr_.x * Dr_.x+ Dr_.y * Dr_.y);
+                     if (Dr_mod>2*ParticleRadius)
+                      {
+                         Dr_.x *=(Dr_mod-2*ParticleRadius)/Dr_mod;
+                         Dr_.y *=(Dr_mod-2*ParticleRadius)/Dr_mod;
+                      }
+                     b2Vec2 NabWKern = [self NablaWPreKernel:Dr_];
+                     
+                     liquid[a1].mVel.x +=-liquid[a2].mMas*(liquid[a1].mPress+liquid[a2].mPress)*NabWKern.x/
+                                          (mDensity0+liquid[a2].mPress/PressPerDensCoef);
+                     liquid[a1].mVel.y += -liquid[a2].mMas*(liquid[a1].mPress+liquid[a2].mPress)*NabWKern.y/
+                     (mDensity0+liquid[a2].mPress/PressPerDensCoef);
+                 }
+              }
+           // вязкость
+            for (int i=0; i < couNeighBoords; i++)
+              {
+                for (int j = 0; j < couNeighBoords; j++)
+                    if  (i != j)
+                    {int a1 = InHashCellIndexes[i],
+                        a2 = InHashCellIndexes[j];
+                        b2Vec2 Dr_=liquid[a1].mPos-liquid[a2].mPos;
+                        float Dr_mod=sqrt(Dr_.x * Dr_.x+ Dr_.y * Dr_.y);
+                        //*
+                        if (Dr_mod>2*ParticleRadius)
+                        {
+                            Dr_.x *=(Dr_mod-2*ParticleRadius)/Dr_mod;
+                            Dr_.y *=(Dr_mod-2*ParticleRadius)/Dr_mod;
+                        }//*/
+                        b2Vec2 MDiffVel=liquid[a2].mVel-liquid[a1].mVel;
+                            
+                        liquid[a1].mVel = liquid[a1].mVel + (liquid[a2].mMas * mju *[self LaplasWViskKernel:Dr_]/
+                                                                 (mDensity0+liquid[a2].mPress/PressPerDensCoef)
+                                                                 ) * MDiffVel;
+                    }
+              }
+            
+		}
+	}
+ /////////////////////////////////////////////////////////////////////////*/
+  float porog = 1.0f;
   for(int x = 0; x < hashWidth; x++)   // процедура определения необходимости отображения
  	{
         for(int y = 0; y < hashHeight; y++)         // соответствующего спрайта
@@ -337,29 +452,29 @@ inline int hashY(float y)
                           {
                               float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
                                     dy = liquid[a].mPos.y-liquid[b].mPos.y;
-                              isXN = ((dx - partRad) * (dx - partRad ) + dy * dy <1.05f* partRad * partRad) &&
-                                   (dx * dx + dy * dy < partRad * partRad);
+                              isXN = ((dx -  ParticleRadius) * (dx -  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+                                   (dx * dx + dy * dy <porog*  ParticleRadius *  ParticleRadius);
                           }
                         if (!isXV)
                          {
                              float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
                                    dy = liquid[a].mPos.y-liquid[b].mPos.y;
-                             isXV = ((dx + partRad) * (dx + partRad ) + dy * dy < 1.05f* partRad * partRad) &&
-                                    (dx * dx + dy * dy < partRad * partRad);
+                             isXV = ((dx +  ParticleRadius) * (dx +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+                                    (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
                          }
                          if (!isYN)
                          {
                              float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
                                    dy = liquid[a].mPos.y-liquid[b].mPos.y;
-                             isYN = ((dy - partRad) * (dy - partRad ) + dx * dx <1.05f* partRad * partRad) &&
-                                   (dx * dx + dy * dy < partRad * partRad);
+                             isYN = ((dy -  ParticleRadius) * (dy -  ParticleRadius ) + dx * dx <   ParticleRadius *  ParticleRadius) &&
+                                   (dx * dx + dy * dy < porog *  ParticleRadius *   ParticleRadius);
                          }
                          if (!isYV)
                          {
                              float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
                                    dy = liquid[a].mPos.y-liquid[b].mPos.y;
-                             isYV = ((dy + partRad) * (dy + partRad ) + dy * dy <1.05f* partRad * partRad) &&
-                                   (dx * dx + dy * dy < partRad * partRad);
+                             isYV = ((dy +  ParticleRadius) * (dy +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+                                   (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
                          }
                      }
                      liquid[a].isVisible=!(isXN && isXV && isYN && isYV);
@@ -367,12 +482,11 @@ inline int hashY(float y)
                  }
            }
 		}
-    }
-    
+    }/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Iterate through the grid, and do an AABB test for every grid containing particles
 	for (int x = 0; x < hashWidth; ++x)
 	{
-		for (int y = 0; y < hashWidth; ++y)
+		for (int y = 0; y < hashHeight; ++y)
 		{
 			if(!hashGridList[x][y].IsEmpty())
 			{
@@ -380,9 +494,7 @@ inline int hashY(float y)
 				float maxX = myMap((float)x+1, 0, hashWidth, fluidMinX, fluidMaxX);
 				float minY = myMap((float)y, 0, hashHeight, fluidMinY, fluidMaxY);
 				float maxY = myMap((float)y+1, 0, hashHeight, fluidMinY, fluidMaxY);
-                
-                
-                
+
 				b2AABB aabb;
                 
 				aabb.lowerBound.Set(minX, minY);
@@ -397,40 +509,98 @@ inline int hashY(float y)
 				}
 			}
 		}
-	}//*/
+	}
 }
-//*/
 
 -(void) tick: (ccTime) dt
 {
     for(NSInteger i=0;i<mNumPoints;i++)
       {
         b2Vec2 g = WORLD->GetGravity();
-     
-        liquid[i].mVel.x +=  g.x * dt;
-		liquid[i].mVel.y +=  g.y * dt;
+        liquid[i].mVel.x +=   0.8f * g.x * dt;
+		liquid[i].mVel.y +=   0.8f * g.y * dt;
         liquid[i].mPos.x += liquid[i].mVel.x * dt;
 		liquid[i].mPos.y += liquid[i].mVel.y * dt;
-        if (liquid[i].mPos.y<0.0f) liquid[i].mVel.y*=-0.9f;
+        if (liquid[i].mPos.y<0.0f) liquid[i].mVel.y*=-0.8f;
 		liquid[i].sp.visible = liquid[i].isVisible;
        }
     
     [self Check];
     [self processWorldInteractions:dt];
-    
+
     for(NSInteger i=0;i<mNumPoints;i++)
       {
        liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPos.x / CC_CONTENT_SCALE_FACTOR(),
                                    PTM_RATIO * liquid[i].mPos.y / CC_CONTENT_SCALE_FACTOR());
     
       }
-    
 }
 
 - (void)accelerometer:(UIAccelerometer*)accelerometer didAccelerate:(UIAcceleration*)acceleration
 {
 	[Common processAccelometry:acceleration];
 }
+
+bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nearestPos, b2Vec2& impactNormal,float particleRadius)
+{
+	if (fixture->GetShape()->GetType() == b2Shape::e_circle)
+	{
+		b2CircleShape* pCircleShape = static_cast<b2CircleShape*>(fixture->GetShape());
+		const b2Transform& xf = fixture->GetBody()->GetTransform();
+		float radius = pCircleShape->m_radius + 2 * particleRadius;
+		b2Vec2 circlePos = xf.p + pCircleShape->m_p;
+		b2Vec2 delta = particlePos - circlePos;
+		if (delta.LengthSquared() > radius * radius)
+		  {
+			return false;
+		  }
+		delta.Normalize();
+		delta *= radius;
+		nearestPos = delta + pCircleShape->m_p;
+		impactNormal = (nearestPos - circlePos);
+		impactNormal.Normalize();
+		return true;
+	}
+	else if (fixture->GetShape()->GetType() == b2Shape::e_polygon)
+	{
+		b2PolygonShape* pPolyShape = static_cast<b2PolygonShape*>(fixture->GetShape());
+		const b2Transform& xf = fixture->GetBody()->GetTransform();
+		int numVerts = pPolyShape->GetVertexCount();
+		b2Vec2 vertices[b2_maxPolygonVertices];
+		b2Vec2 normals[b2_maxPolygonVertices];
+		for (int32 i = 0; i < numVerts; ++i)
+		{
+			vertices[i] = b2Mul(xf, pPolyShape->m_vertices[i]);
+			normals[i] = b2Mul(xf.q, pPolyShape->m_normals[i]);
+		}
+		float shortestDistance = 99999.0f;
+		for (int i = 0; i < numVerts ; ++i)
+		{
+            b2Vec2 vertex = vertices[i] + 0.4f * normals[i] - particlePos;
+			float distance = b2Dot(normals[i], vertex);
+			if (distance < 0)
+			{
+				return false;
+			}
+			if (distance < shortestDistance)
+			{
+				shortestDistance = distance;
+				nearestPos = b2Vec2(
+                                    normals[i].x * distance + particlePos.x,
+                                    normals[i].y * distance + particlePos.y);
+				impactNormal = normals[i];
+			}
+		}
+		return true;
+	}
+	else
+	{
+		// Unrecognised shape type
+		assert(false);
+		return false;
+	}
+}
+
 
 -(void)Setup:(bool)bStart;
 {
@@ -458,7 +628,7 @@ inline int hashY(float y)
 //	SetupGridAllocate ( m_Vec[PVOLMIN],  m_Vec[PVOLMAX], m_Param[PSIMSCALE], m_Param[PGRIDSIZE], 1.0 );	// Setup grid
 }
 //*
-void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, sPart *liquid,float knorm, float ktang)
+void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, sPart *liquid,float knorm, float ktang)
 {
 	liquid[particleIdx].mPos = nearestPos;
     
@@ -477,6 +647,7 @@ void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& norma
 -(void)Exit
 {
     free(liquid);
+    free(InHashCellIndexes);
     /*
 	free ( mPos );
 	free ( mClr );

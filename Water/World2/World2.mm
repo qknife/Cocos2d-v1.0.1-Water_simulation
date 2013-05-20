@@ -580,13 +580,13 @@ inline int hashY(float y)
 
 bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nearestPos, b2Vec2& impactNormal)
 {
-    const float particleRadius = 0.2f;
+    const float particleRadius = 1.2f;
     
 	if (fixture->GetShape()->GetType() == b2Shape::e_circle)
 	{
 		b2CircleShape* pCircleShape = static_cast<b2CircleShape*>(fixture->GetShape());
 		const b2Transform& xf = fixture->GetBody()->GetTransform();
-		float radius = pCircleShape->m_radius + 2 * particleRadius;
+		float radius = pCircleShape->m_radius + 0.4f * particleRadius;
 		b2Vec2 circlePos = xf.p + pCircleShape->m_p;
 		b2Vec2 delta = particlePos - circlePos;
 		if (delta.LengthSquared() > radius * radius)
@@ -622,7 +622,7 @@ bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nea
         
 		for (int i = 0; i < numVerts ; ++i)
 		{
-            b2Vec2 vertex = vertices[i] + 4 * particleRadius * normals[i] - particlePos;
+            b2Vec2 vertex = vertices[i] + 0.4f * normals[i] - particlePos;
 			float distance = b2Dot(normals[i], vertex);
             
 			if (distance < 0)

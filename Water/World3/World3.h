@@ -107,8 +107,10 @@
 #define BFLUID				2
 #define DWORD int
 
-#define hashWidth		(50)
-#define hashHeight		(50)
+#define hashWidth	   	    (50)
+#define hashHeight		    (50)
+#define eps                 0.001
+
 
 struct NList
 {
@@ -132,11 +134,11 @@ struct Fluid
 
 struct sPart
 {
-    CCSprite * sp;
+    CCSprite *              sp;
     b2Vec2				    mPos;
     b2Vec2				    mVel;
-    float                   ParticleRadius; // радиус симулируемых частиц
 
+    float                   mMas;
     float                   mPress;     //  давление
     BOOL                    isVisible;  //  признак отображения
     
@@ -146,12 +148,13 @@ struct sPart
 class QueWorldInteractions : public b2QueryCallback
 {
 public:
-    QueWorldInteractions(cFluidHashList (*grid)[hashHeight], sPart *particles,float _knorm, float _ktang)
+    QueWorldInteractions(cFluidHashList (*grid)[hashHeight], sPart *particles,float _knorm, float _ktang,float particleradius)
 	{
         hashGridList = grid;
         liquid = particles;
         knorm = _knorm;
         ktang = _ktang;
+        PartRadius = particleradius;
     };
     
     bool ReportFixture(b2Fixture* fixture);
@@ -160,11 +163,12 @@ public:
     
 protected:
     cFluidHashList (*hashGridList)[hashHeight];
-    sPart *liquid;
+    sPart                   *liquid;
     float                   knorm;          //  нормальный коэффициент восстановления
     float                   ktang;          //  тангенциальный коэффициент восстановления
     float                   mju;            //  вязкость
     float                   mro;            //  плотность
+    float                   PartRadius;
 };
 //*/
 
@@ -230,6 +234,7 @@ protected:
 	int						mFileNum;
 	std::string				mFileName;
 	float					mFileSize;
+    
 	FILE*					mFP;
 	int						mLastPoints;
 	
@@ -243,13 +248,18 @@ protected:
 	uint*					mSaveNdx;
 	uint*					mSaveCnt;
 	uint*					mSaveNeighbors;
+    float                   SmoothRad;
     sPart*                  liquid;
     float                   knorm;          //  нормальный коэффициент восстановления
     float                   ktang;          //  тангенциальный коэффициент восстановления
     float                   mju;            //  вязкость
     float                   mro;            //  плотность
+    float                   mDensity0;
+    float                   PressPerDensCoef;
+    float                   ParticleRadius;
     
     cFluidHashList          hashGridList[hashWidth][hashHeight];
+    int*                    InHashCellIndexes;
     
 }
 
