@@ -138,7 +138,7 @@ static CGSize size;
 			currentScene = [World3 node];
 			break;
 		case 1:
-			currentScene = [World3 node];
+			currentScene = [World1 node];
 			break;
 		case 2:
 			currentScene = [World2 node];
@@ -211,7 +211,9 @@ static CGSize size;
 	gFix.shape = &sd;
 	
 	int const obstacles_count = 10;
-	float data[obstacles_count][5] = {{1,3,49,49,-1.57f / 2},{5,1,40,47,0},{1,4,32,48,0},{7,1,23,66,-1.57f / 2},{1,7,16,78,0},{9,1,40,66,-1.57f / 2},{1,14,31,86,0},{1,11,63,53,0},{1,5,59,40,-1.57f / 2}};
+	float data[obstacles_count][5] = {{1,3,49,49,-1.57f / 2},{5,1,40,47,0},{1,4,32,48,0},{7,1,23,66,-1.57f / 2},{1,7,16,78,0},{9,1,40,66,-1.57f / 2},
+              //   {1,14,31,86,0},{1,11,63,53,0},{1,5,59,40,-1.57f / 2}};
+                   {14,1,68,46,0},{1,11,53,53,0},{1,11,75,53,0}};
 	for (int i = 0; i < obstacles_count; i++)
 	{
 		sd.SetAsBox(data[i][0] * UNIT, data[i][1] * UNIT,b2Vec2(MW(data[i][2]),MH(data[i][3])),data[i][4]);
@@ -247,7 +249,7 @@ static CGSize size;
 	
 	// set sprites
 	particlesCount = 0;
-	[self setParticlesCount:1000];//125
+	[self setParticlesCount:200];//125
 }
 
 +(void)cleanScene
@@ -342,9 +344,9 @@ static CGSize size;
 {
 	glDisable(GL_ALPHA_TEST);
 	
-    [renderTexture beginWithClear:0 g:0 b:0 a:0];
+   // [renderTexture beginWithClear:0 g:0 b:0 a:0];
     [batch visit];
-    [renderTexture end];
+   // [renderTexture end];
 
 #if 1 == DEBUG_DRAW
 	glPushMatrix();

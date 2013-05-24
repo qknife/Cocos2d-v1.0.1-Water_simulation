@@ -39,7 +39,7 @@
     
 	// Define another box shape for our dynamic body.
 	b2CircleShape blob;
-    blob.m_radius = (sprite.contentSizeInPixels.width / 16)/PTM_RATIO;
+    blob.m_radius = (sprite.contentSizeInPixels.width / 10)/PTM_RATIO;
     
 	// Define the dynamic body fixture.
 	b2FixtureDef fixtureDef;
@@ -91,17 +91,112 @@
 	WORLD->Step(1.0f / 60.0f, velocityIterations, positionIterations);
     
 	//Iterate over the bodies in the physics world
-	for (b2Body* b = WORLD->GetBodyList(); b; b = b->GetNext())
+	//*
+    int i = 0;float ParticleRadius=15.f,porog=1.0f;
+    for (b2Body* b = WORLD->GetBodyList(); b; b = b->GetNext())
 	{
-		if (b->GetUserData() != NULL) {
+		if (b->GetUserData() != NULL)
+        {
 			//Synchronize the AtlasSprites position and rotation with the corresponding body
 			CCSprite *myActor = (CCSprite*)b->GetUserData();
 			myActor.position = CGPointMake( b->GetPosition().x * PTM_RATIO / CC_CONTENT_SCALE_FACTOR(), b->GetPosition().y * PTM_RATIO / CC_CONTENT_SCALE_FACTOR());
-		}
+            i++;
+            myActor.visible = YES;
+            if (i>3)
+              {
+               BOOL isXN = NO, isXV = NO, isYN = NO, isYV = NO;
+               for (b2Body* a = WORLD->GetBodyList(); (a) && (a!=b) ; a = a->GetNext())
+                 {
+                   CCSprite *myPrevActor = (CCSprite*)a->GetUserData();
+             // myPrevActor.position.x myPrevActor.position.y
+               //  myActor.position.x myActor.position.y
+                     if (!isXN)
+                     {
+                         float dx = myPrevActor.position.x  -  myActor.position.x ,
+                         dy = myPrevActor.position.y-myActor.position.y;
+                         isXN = ((dx -  ParticleRadius) * (dx -  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+                         (dx * dx + dy * dy <porog*  ParticleRadius *  ParticleRadius);
+                     }
+                     if (!isXV)
+                     {
+                         float dx = myPrevActor.position.x-myActor.position.x ,
+                         dy = myPrevActor.position.y-myActor.position.y;
+                         isXV = ((dx +  ParticleRadius) * (dx +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+                         (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
+                     }
+                     if (!isYN)
+                     {
+                         float dx = myPrevActor.position.x-myActor.position.x ,
+                         dy = myPrevActor.position.y-myActor.position.y;
+                         isYN = ((dy -  ParticleRadius) * (dy -  ParticleRadius ) + dx * dx <   ParticleRadius *  ParticleRadius) &&
+                         (dx * dx + dy * dy < porog *  ParticleRadius *   ParticleRadius);
+                     }
+                     if (!isYV)
+                     {
+                         float dx = myPrevActor.position.x-myActor.position.x ,
+                         dy = myPrevActor.position.y-myActor.position.y;
+                         isYV = ((dy +  ParticleRadius) * (dy +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+                         (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
+                     }
+                 }
+               myActor.visible = !(isXN && isXV && isYN && isYV);
+              }
+        }
 	}
-	
+	//*/
 	WORLD->ClearForces ();
 }
+/*
+float porog = 1.0f;
+
+        if(!hashGridList[x][y].IsEmpty())
+        {
+            int a, b;
+            hashGridList[x][y].ResetIterator();
+            for(int i=1;i<=4;i++) a = hashGridList[x][y].GetNext();
+            while (a>-1)
+            {
+                bool isXN=false, isXV=false, isYN=false, isYV=false;
+                hashGridList[x][y].ResetIterator();
+                while (b!=a)
+                {
+                    b = hashGridList[x][y].GetNext();
+                    if (!isXN)
+                    {
+                        float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
+                        dy = liquid[a].mPos.y-liquid[b].mPos.y;
+                        isXN = ((dx -  ParticleRadius) * (dx -  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+                        (dx * dx + dy * dy <porog*  ParticleRadius *  ParticleRadius);
+                    }
+                    if (!isXV)
+                    {
+                        float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
+                        dy = liquid[a].mPos.y-liquid[b].mPos.y;
+                        isXV = ((dx +  ParticleRadius) * (dx +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+                        (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
+                    }
+                    if (!isYN)
+                    {
+                        float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
+                        dy = liquid[a].mPos.y-liquid[b].mPos.y;
+                        isYN = ((dy -  ParticleRadius) * (dy -  ParticleRadius ) + dx * dx <   ParticleRadius *  ParticleRadius) &&
+                        (dx * dx + dy * dy < porog *  ParticleRadius *   ParticleRadius);
+                    }
+                    if (!isYV)
+                    {
+                        float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
+                        dy = liquid[a].mPos.y-liquid[b].mPos.y;
+                        isYV = ((dy +  ParticleRadius) * (dy +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+                        (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
+                    }
+                }
+                liquid[a].isVisible=!(isXN && isXV && isYN && isYV);
+                a = hashGridList[x][y].GetNext();
+            }
+        }
+    
+//*/
+
 
 - (void)accelerometer:(UIAccelerometer*)accelerometer didAccelerate:(UIAcceleration*)acceleration
 {

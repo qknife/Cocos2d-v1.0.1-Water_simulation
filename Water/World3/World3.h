@@ -107,8 +107,8 @@
 #define BFLUID				2
 #define DWORD int
 
-#define hashWidth	   	    (50)
-#define hashHeight		    (50)
+#define hashWidth	   	    (30)
+#define hashHeight		    (30)
 #define eps                 0.001
 
 
@@ -135,11 +135,17 @@ struct Fluid
 struct sPart
 {
     CCSprite *              sp;
-    b2Vec2				    mPos;
-    b2Vec2				    mVel;
-
+    b2Vec2				    mPos;           //
+    b2Vec2				    mOldPos;        //
+    float                   mDensity;       //
+    float                   mPress;         //  давление
+    b2Vec2				    mVel;           //  скорость
+    b2Vec2                  mPressureForce; //
+    b2Vec2                  mViscosityForce;//
+    b2Vec2                  mN;
+    b2Vec2                  mBodyForce;
     float                   mMas;
-    float                   mPress;     //  давление
+    
     BOOL                    isVisible;  //  признак отображения
     
 };
@@ -177,77 +183,10 @@ protected:
 {
 	std::string				mSceneName;
    QueWorldInteractions *intersectQueryCallback;
-	// Time
-	int							m_Frame;
-	double						m_DT;
-	double						m_Time;
-	
-	// Simulation Parameters
-	double						m_Param [ MAX_PARAM ];			// see defines above
-	b2Vec3					    m_Vec [ MAX_PARAM ];
-	bool						m_Toggle [ MAX_PARAM ];
-	
-	// SPH Kernel functions
-	double					m_R2, m_Poly6Kern, m_LapKern, m_SpikyKern;
-	
-	// Particle Buffers
+
 	int						mNumPoints;
-	int						mMaxPoints;
-	int						mGoodPoints;
-	int*					mClr;
-	b2Vec2*				    mVelEval;
-	unsigned short*			mAge;
-	float*					mPressure;
-	float*					mDensity;
-	b2Vec3*				    mForce;
-	uint*					mGridCell;
-	uint*					mClusterCell;
-	uint*					mGridNext;
-	uint*					mNbrNdx;
-	uint*					mNbrCnt;
-	
-	// Acceleration Grid
-	uint*					m_Grid;
-	uint*					m_GridCnt;
-	int						m_GridTotal;			// total # cells
-	b2Vec3			     	m_GridRes;				// resolution in each axis
-	b2Vec3				    m_GridMin;				// volume of grid (may not match domain volume exactly)
-	b2Vec3				    m_GridMax;
-	b2Vec3				    m_GridSize;				// physical size in each axis
-	b2Vec3				    m_GridDelta;
-	int						m_GridSrch;
-	int						m_GridAdjCnt;
-	int						m_GridAdj[216];
-	
-	// Acceleration Neighbor Table
-	int						m_NeighborNum;
-	int						m_NeighborMax;
-	int*					m_NeighborTable;
-	float*					m_NeighborDist;
-	
-	char*					mPackBuf;
-	int*					mPackGrid;
-	
-	int						mVBO[3];
-	
-	// Record/Playback
-	int						mFileNum;
-	std::string				mFileName;
-	float					mFileSize;
-    
-	FILE*					mFP;
-	int						mLastPoints;
-	
-	int						mSpherePnts;
 	int						mTex[1];
 	GLuint					instancingShader;
-	
-	// Selected particle
-	int						mSelected;
-	// Saved results (for algorithm validation)
-	uint*					mSaveNdx;
-	uint*					mSaveCnt;
-	uint*					mSaveNeighbors;
     float                   SmoothRad;
     sPart*                  liquid;
     float                   knorm;          //  нормальный коэффициент восстановления
@@ -257,7 +196,26 @@ protected:
     float                   mDensity0;
     float                   PressPerDensCoef;
     float                   ParticleRadius;
-    
+    float                   gTimeStep;
+    //  параметры жидкости
+    float                   gDensity0;
+    float                   gParticleRadius;
+    float                   gGasK;
+    float                   gViscosity;
+    float                   volume;
+    float                   gParticleMass;
+    // константы ядер
+    float                   kernelScale;
+    float                   gKernelH     ;
+    float                   gKernelH9    ;
+    float                   gKernelH6    ;
+    float                   gKernelH4    ;
+    float                   gKernelH3    ;
+    float                   gKernelH2    ;
+    float                   gWPoly6Scale ;
+    float                   gWSpikyScale ;
+    float                   gWViscosityScale;
+    float                   gWLucyScale;
     cFluidHashList          hashGridList[hashWidth][hashHeight];
     int*                    InHashCellIndexes;
     
@@ -318,16 +276,6 @@ int GetNeighborTableSize ();//	{ return m_NeighborNum; }
 void ClearNeighbors ( int i );
 int AddNeighbor();
 int AddNeighbor( int i, int j, float d );
-
-// Smoothed Particle Hydrodynamics
-void ComputePressureGrid ();			// O(kn) - spatial grid
-void ComputeForceGrid ();				// O(kn) - spatial grid
-void ComputeForceGridNC ();				// O(cn) - neighbor table
-
-// GPU Support functions
-void AllocatePackBuf ();
-void PackParticles ();
-void UnpackParticles ();
 
 // Parameters
 void SetParam (int p, float v );//		{ m_Param[p] = v; }
