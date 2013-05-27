@@ -247,9 +247,7 @@ inline int hashY(float y)
 	{
 		// enable accelerometer
 		self.isAccelerometerEnabled = YES;
-        
         mNumPoints = 200;
-    
 		CGSize t=[Common size];
 		fluidMinX = MW(0);
 		fluidMaxX = MW(100);
@@ -261,66 +259,32 @@ inline int hashY(float y)
         gDensity0 = 1000.0f;
         gViscosity = 0.005f;
         gGasK = 1.0f;
-        kernelScale = 5.0f;
-        
-//        gDomainY = gDomainX * gWindowH / gWindowW;
-//        gContainerWidth = gContainerWidthFrac * gDomainX;
-//        gContainerHeight = gContainerHeightFrac * gDomainX;
-//        gContainerX = 0.5f * gDomainX - 0.5f * gContainerWidth;
-//        gContainerY = 0.1f * gDomainY;
-        //gInitialFluidHeight = gInitialFluidHeightFrac * gContainerHeight;
-        volume = 50;
-        gParticleRadius = sqrt(volume /(4.0f * mNumPoints));
-        gParticleMass = volume * gDensity0 / mNumPoints;
-        gKernelH = kernelScale * gParticleRadius;
         gKernelH9 = pow(gKernelH, 9.0f);
         gKernelH6 = pow(gKernelH, 6.0f);
         gKernelH4 = pow(gKernelH, 4.0f);
         gKernelH3 = pow(gKernelH, 3.0f);
         gKernelH2 = pow(gKernelH, 2.0f);
-        gParticleMass = volume * gDensity0 / mNumPoints;
+        gWPoly6Scale = 0.0f;
+        gWSpikyScale = 0.0f;
+        gWViscosityScale = 0.0f;
+        gWLucyScale = 0.0f;
+        gParticles = 0;
+        gSpatialGrid = 0;
         [self NormaliseKernels];
         //[self Setup:true];
 		//[self Run:0 :0];		
 		[self schedule: @selector(tick:) interval:1.0f / 60.0f];
+        gContainerX = 0;gContainerY=0;
+        gContainerWidth  = (SIZE.width / 10) / PTM_RATIO;
+        gContainerHeight = (SIZE.height / 10) / PTM_RATIO;        
 	}
-	
+
 	return self;
 }
 
 -(void) NormaliseKernels
 {
-    int n = 1000;
-    float xmin = -1.0f * gKernelH;
-    float ymin = xmin;
-    float xmax = -xmin;
-    float ymax = xmax;
-    float dx = (xmax - xmin) / (n - 1);
-    float dy = (ymax - ymin) / (n - 1);
-    float dA = dx * dy;
-    float totalPoly6 = 0.0f;
-    float totalSpiky = 0.0f;
-    float totalViscosity = 0.0f;
-    float totalLucy = 0.0f;
-    gWPoly6Scale = 1.0f;
-    gWSpikyScale = 1.0f;
-    gWViscosityScale = 1.0f;
-    gWLucyScale = 1.0f;
-    for (int i = 0 ; i < n ; ++i)
-    {
-        for (int j = 0 ; j < n ; ++j)
-        {
-            b2Vec2 r = b2Vec2(xmin + i * dx, ymin + j * dy);
-            totalPoly6 += [self WPoly6: r] * dA;
-            totalSpiky += [self WSpiky : r] * dA;
-            totalViscosity += [self WViscosity : r] * dA;
-            totalLucy += [self WLucy:r] * dA;
-        }
-    }
-    gWPoly6Scale = 1.0f / totalPoly6;
-    gWSpikyScale = 1.0f / totalSpiky;
-    gWViscosityScale = 1.0f / totalViscosity;
-    gWLucyScale = 1.0f / totalLucy;
+   
 }
 
 
@@ -332,110 +296,103 @@ float LenSq(b2Vec2 r)
 ////==============================================================
 //// WPoly6
 ////==============================================================
-//*
--(float) WPoly6 : (b2Vec2) r
+
+- (tScalar) WPoly6 : (const tVector2) r
 {
-    float r2 = r.x * r.x + r.y * r.y;
+    tScalar r2 = r.GetLengthSq();
     if (r2 > gKernelH2) return 0.0f;
-    float a = gKernelH2 - r2;
+    tScalar a = gKernelH2 - r2;
     return gWPoly6Scale * a * a * a;
 }
 //*/
-////==============================================================
-//// WPoly6Grad
-////==============================================================
--(b2Vec2) WPoly6Grad : (b2Vec2) r
+//==============================================================
+// WPoly6Grad
+//==============================================================
+- (tVector2) WPoly6Grad : (const tVector2) r
 {
-    b2Vec2 Result;
-    float r2 = LenSq(r);
-    if (r2 > gKernelH2)
-         Result = b2Vec2(0.0f, 0.0f);
-    float f = -6.0f * gWPoly6Scale;
-    float a = gKernelH2 - r2;
-    float b = f * a * a;
-    Result = b2Vec2(b * r.x, b * r.y);
-    return Result;
+    tScalar r2 = r.GetLengthSq();
+    if (r2 > gKernelH2) return tVector2(0.0f, 0.0f);
+    const tScalar f = -6.0f * gWPoly6Scale;
+    tScalar a = gKernelH2 - r2;
+    tScalar b = f * a * a;
+    return tVector2(b * r.x, b * r.y);
 }
 
-////==============================================================
-//// WSpiky
-////==============================================================
--(float) WSpiky : (b2Vec2) R
+//==============================================================
+// WSpiky
+//==============================================================
+- (tScalar) WSpiky : (const tVector2) R
 {
-    float r2 = LenSq(R);
+    tScalar r2 = R.GetLengthSq();
     if (r2 > gKernelH2) return 0.0f;
-    float a = gKernelH - sqrt(r2);
+    tScalar a = gKernelH - sqrt(r2);
     return gWSpikyScale * a * a * a;
 }
 
-////==============================================================
-//// WSpikyGrad
-////==============================================================
--(b2Vec2) WSpikyGrad : (b2Vec2) R
+//==============================================================
+// WSpikyGrad
+//==============================================================
+- (tVector2) WSpikyGrad : (const tVector2) R
 {
-    b2Vec2 Result;
-    float r2 = LenSq(R);
-    if (r2 > gKernelH2) Result=b2Vec2(0.0f, 0.0f);
-    float minR2 = 1.0E-12;
+    tScalar r2 = R.GetLengthSq();
+    if (r2 > gKernelH2) return tVector2(0.0f, 0.0f);
+    static const tScalar minR2 = 1.0E-12;
     if (r2 < minR2) r2 = minR2;
-    float r = sqrt(r2);
-    float a = -3.0f * gWSpikyScale * (gKernelH - r) * (gKernelH - r) / r;
-    Result = b2Vec2(a * R.x, a * R.y);
-    return Result;
+    tScalar r = sqrt(r2);
+    tScalar a = -3.0f * gWSpikyScale * (gKernelH - r) * (gKernelH - r) / r;
+    return tVector2(a * R.x, a * R.y);
 }
 
-////==============================================================
-//// WViscosity
-////==============================================================
--(float) WViscosity : (b2Vec2) R
+//==============================================================
+// WViscosity
+//==============================================================
+- (tScalar) WViscosity : (const tVector2) R
 {
-    float r2 = LenSq(R);
+    tScalar r2 = R.GetLengthSq();
     if (r2 > gKernelH2) return 0.0f;
-    static const float minR2 = 1.0E-12;
+    static const tScalar minR2 = 1.0E-12;
     if (r2 < minR2) r2 = minR2;
-    float r = sqrt(r2);
-    float r3 = r * r * r;
+    tScalar r = sqrt(r2);
+    tScalar r3 = r * r * r;
     return gWViscosityScale * ( ( (-r3 / (2.0f * gKernelH3)) +
                                  (r2 / gKernelH2) +
                                  gKernelH / (2.0f * r)) - 1.0f);
 }
 
-////========================================================
-//// WViscosityLap
-////========================================================
--(float) WViscosityLap : (b2Vec2) R
+//========================================================
+// WViscosityLap
+//========================================================
+- (tScalar) WViscosityLap : (const tVector2) R
 {
-    float r2 = LenSq(R);
+    tScalar r2 = R.GetLengthSq();
     if (r2 > gKernelH2) return 0.0f;
-    float r = sqrt(r2);
+    tScalar r = sqrt(r2);
     return gWViscosityScale * (6.0f / gKernelH3) * (gKernelH - r);
 }
 
-////==============================================================
-//// WLucy
-//// My cat's called Lucy
-////==============================================================
--(float) WLucy : (b2Vec2) R
+//==============================================================
+// WLucy
+// My cat's called Lucy
+//==============================================================
+- (tScalar) WLucy : (const tVector2) R
 {
-    float r2 = LenSq(R);
+    tScalar r2 = R.GetLengthSq();
     if (r2 > gKernelH2) return 0.0f;
-    float r = sqrt(r2);
-    float b = 1 - r / gKernelH;
-    float a = (1.0f + 3.0f * r / gKernelH) * cube(b);
+    tScalar r = sqrt(r2);
+    tScalar a = (1.0f + 3.0f * r / gKernelH) * cube(1 - r / gKernelH);
     return gWLucyScale * a;
 }
 
-////==============================================================
-//// WLucyGrad
--(b2Vec2) WLucyGrad : (b2Vec2) R
+//==============================================================
+// WLucyGrad
+//==============================================================
+- (tVector2) WLucyGrad : (const tVector2) R
 {
-    b2Vec2 Result;
-    float r2 = LenSq(R);
-    if (r2 > gKernelH2) Result = b2Vec2(0.0f, 0.0f);
-    float r = sqrt(r2);
-    float a = -12.0f * (gKernelH2 - 2.0f * r * gKernelH + r2) / gKernelH4;
-    Result = b2Vec2(a * R.x, a * R.y);
-    return Result;
+    tScalar r2 = R.GetLengthSq();
+    if (r2 > gKernelH2) return tVector2(0.0f, 0.0f);
+    tScalar r = sqrt(r2);
+    tScalar a = -12.0f * (gKernelH2 - 2.0f * r * gKernelH + r2) / gKernelH4;
+    return tVector2(a * R.x, a * R.y);
 }
 
 -(void)draw
@@ -452,10 +409,10 @@ float LenSq(b2Vec2 r)
 	liquid = (sPart *)calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
 	InHashCellIndexes = (int *) calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
 	// recreate delegates
-	if (liquid)
-	{
-		intersectQueryCallback = new QueWorldInteractions(hashGridList, liquid, knorm, ktang, ParticleRadius);
-	}
+//	if (liquid)
+//	{
+//		intersectQueryCallback = new QueWorldInteractions(hashGridList, liquid, knorm, ktang, ParticleRadius);
+//	}
 	if (tmp)
 	{
 		memcpy(liquid, tmp, sizeof(sPart) * PARTICLES_COUNT);
@@ -506,30 +463,33 @@ float LenSq(b2Vec2 r)
 {
 }
 
--(void) Check
+
+//==============================================================
+// ImposeBoundaryConditions
+//==============================================================
+-(void) ImposeBoundaryConditions
 {
-    for (int i = 0; i < mNumPoints; ++i)
+    // velocity scaling when colliding with walls
+    tVector2 normal;
+    for (int i = gNParticles ; i-- != 0 ; )
     {
-        if (liquid[i].mPos.y < (SIZE.height / 10) / PTM_RATIO)
+        if (gParticles[i].mR.x < gContainerX)
         {
-            liquid[i].mPos = b2Vec2(liquid[i].mPos.x, (SIZE.height / 10) / PTM_RATIO);
-            liquid[i].mVel.y *= -0.8f;
+            gParticles[i].mR.x = gContainerX;
         }
-        else if (liquid[i].mPos.y > SIZE.height / PTM_RATIO)
+        else if (gParticles[i].mR.x > gContainerX + gContainerWidth)
         {
-            liquid[i].mPos = b2Vec2(liquid[i].mPos.x, SIZE.height / PTM_RATIO);
-           liquid[i].mVel.y *= -0.8f;
-        }  
-        if (liquid[i].mPos.x < 0)
-        {
-            liquid[i].mPos= b2Vec2(0, liquid[i].mPos.y);
-            liquid[i].mVel.x *= -0.8f;
+            gParticles[i].mR.x = gContainerX + gContainerWidth;
         }
-        else if (liquid[i].mPos.x > SIZE.width / PTM_RATIO)
+        if (gParticles[i].mR.y < gContainerY)
         {
-            liquid[i].mPos = b2Vec2(SIZE.width / PTM_RATIO, liquid[i].mPos.y);
-            liquid[i].mVel.x *= -0.8f;
+            gParticles[i].mR.y = gContainerY;
         }
+        else if (gParticles[i].mR.y > gContainerY + gContainerHeight)
+        {
+            gParticles[i].mR.y = gContainerY + gContainerHeight;
+        }
+       
     }
 }
 
@@ -603,245 +563,94 @@ for(int a = 0; a < hashWidth; a++)
 
 -(void) spritevisibles
 {
-  float porog = 1.0f;
-  for(int x = 0; x < hashWidth; x++)   // процедура определения необходимости отображения
- 	{
-        for(int y = 0; y < hashHeight; y++)         // соответствующего спрайта
-		{
-         if(!hashGridList[x][y].IsEmpty())
-           {
-               int a, b;
-               hashGridList[x][y].ResetIterator();
-               for(int i=1;i<=4;i++) a = hashGridList[x][y].GetNext();
-               while (a>-1)
-                 {
-                    bool isXN=false, isXV=false, isYN=false, isYV=false;
-                    hashGridList[x][y].ResetIterator();
-                    while (b!=a)
-                     {
-                        b = hashGridList[x][y].GetNext();
-                        if (!isXN)
-                          {
-                              float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
-                                    dy = liquid[a].mPos.y-liquid[b].mPos.y;
-                              isXN = ((dx -  ParticleRadius) * (dx -  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
-                                   (dx * dx + dy * dy <porog*  ParticleRadius *  ParticleRadius);
-                          }
-                        if (!isXV)
-                         {
-                             float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
-                                   dy = liquid[a].mPos.y-liquid[b].mPos.y;
-                             isXV = ((dx +  ParticleRadius) * (dx +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
-                                    (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
-                         }
-                         if (!isYN)
-                         {
-                             float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
-                                   dy = liquid[a].mPos.y-liquid[b].mPos.y;
-                             isYN = ((dy -  ParticleRadius) * (dy -  ParticleRadius ) + dx * dx <   ParticleRadius *  ParticleRadius) &&
-                                   (dx * dx + dy * dy < porog *  ParticleRadius *   ParticleRadius);
-                         }
-                         if (!isYV)
-                         {
-                             float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
-                                   dy = liquid[a].mPos.y-liquid[b].mPos.y;
-                             isYV = ((dy +  ParticleRadius) * (dy +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
-                                   (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
-                         }
-                     }
-                     liquid[a].isVisible=!(isXN && isXV && isYN && isYV);
-                     a = hashGridList[x][y].GetNext();
-                 }
-           }
-		}
-    }
+//  float porog = 1.0f;
+//  for(int x = 0; x < hashWidth; x++)   // процедура определения необходимости отображения
+// 	{
+//        for(int y = 0; y < hashHeight; y++)         // соответствующего спрайта
+//		{
+//         if(!hashGridList[x][y].IsEmpty())
+//           {
+//               int a, b;
+//               hashGridList[x][y].ResetIterator();
+//               for(int i=1;i<=4;i++) a = hashGridList[x][y].GetNext();
+//               while (a>-1)
+//                 {
+//                    bool isXN=false, isXV=false, isYN=false, isYV=false;
+//                    hashGridList[x][y].ResetIterator();
+//                    while (b!=a)
+//                     {
+//                        b = hashGridList[x][y].GetNext();
+//                        if (!isXN)
+//                          {
+//                              float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
+//                                    dy = liquid[a].mPos.y-liquid[b].mPos.y;
+//                              isXN = ((dx -  ParticleRadius) * (dx -  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+//                                   (dx * dx + dy * dy <porog*  ParticleRadius *  ParticleRadius);
+//                          }
+//                        if (!isXV)
+//                         {
+//                             float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
+//                                   dy = liquid[a].mPos.y-liquid[b].mPos.y;
+//                             isXV = ((dx +  ParticleRadius) * (dx +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+//                                    (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
+//                         }
+//                         if (!isYN)
+//                         {
+//                             float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
+//                                   dy = liquid[a].mPos.y-liquid[b].mPos.y;
+//                             isYN = ((dy -  ParticleRadius) * (dy -  ParticleRadius ) + dx * dx <   ParticleRadius *  ParticleRadius) &&
+//                                   (dx * dx + dy * dy < porog *  ParticleRadius *   ParticleRadius);
+//                         }
+//                         if (!isYV)
+//                         {
+//                             float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
+//                                   dy = liquid[a].mPos.y-liquid[b].mPos.y;
+//                             isYV = ((dy +  ParticleRadius) * (dy +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
+//                                   (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
+//                         }
+//                     }
+//                     liquid[a].isVisible=!(isXN && isXV && isYN && isYV);
+//                     a = hashGridList[x][y].GetNext();
+//                 }
+//           }
+//		}
+//    }
 
 }
 
 -(void) bodytouchtest :(float) deltaT
 {
- // Iterate through the grid, and do an AABB test for every grid containing particles
-	for (int x = 0; x < hashWidth; ++x)
-	{
-		for (int y = 0; y < hashHeight; ++y)
-		{
-			if(!hashGridList[x][y].IsEmpty())
-			{
-				float minX = myMap((float)x, 0, hashWidth, fluidMinX, fluidMaxX);
-				float maxX = myMap((float)x+1, 0, hashWidth, fluidMinX, fluidMaxX);
-				float minY = myMap((float)y, 0, hashHeight, fluidMinY, fluidMaxY);
-				float maxY = myMap((float)y+1, 0, hashHeight, fluidMinY, fluidMaxY);
 
-				b2AABB aabb;
-                
-				aabb.lowerBound.Set(minX, minY);
-				aabb.upperBound.Set(maxX, maxY);
-                
-				if (intersectQueryCallback)
-				{
-					intersectQueryCallback->x = x;
-					intersectQueryCallback->y = y;
-					intersectQueryCallback->deltaT = deltaT;
-					WORLD->QueryAABB(intersectQueryCallback, aabb);
-				}
-			}
-		}
-	}
 }
 
 
 -(void) PreventParticleCohabilities
 {
-    tScalar minDist = 0.5f * gParticleRadius;
-    tScalar minDist2 = minDist * minDist;
-    tScalar resolveFrac = 0.4f;
-    tVector2 delta;
-    
-    
-    for(int a = 0; a < hashWidth; a++)
-	{
-		for(int b = 0; b < hashHeight; b++)
-		{
-			int couNeighBoords = [self NeighBoordsFind: a : b  : 0];
-            
-            for (int i=0; i < couNeighBoords; i++)
-            {
-                int a1 = InHashCellIndexes[i];
-                for (int j = i+1; j < couNeighBoords; j++)
-                {
-                    int a2 = InHashCellIndexes[j];
-                    delta = liquid[a2].mPos - liquid[a1].mPos;
-                    tScalar deltaLenSq = LenSq(delta);
-                    
-                if (deltaLenSq > eps)
-                 {
-                   tScalar deltaLen = sqrt(deltaLenSq);
-                   tScalar diff = resolveFrac * 0.5f * (deltaLen - minDist) / deltaLen;
-                   delta = diff * delta;
-                   liquid[a1].mPos += delta;
-                   liquid[a1].mOldPos += delta;
-                   liquid[a2].mPos -= delta;
-                   liquid[a2].mOldPos -= delta;
-                 }
-                else
-                 {
-                   liquid[a1].mPos.x += 0.5f * resolveFrac * minDist;
-                   liquid[a1].mOldPos.x += 0.5f * resolveFrac * minDist;
-                   liquid[a2].mPos.x -= 0.5f * resolveFrac * minDist;
-                   liquid[a2].mOldPos.x -= 0.5f * resolveFrac * minDist;
-                 }
-                }
-            }
-		}
-    }
+
 }
 
 
 -(void)Integrate:(float)deltaT
 {
-    [self hashCreate];
-  //*/////////////////////////////////// ФИЗИКА!!! /////////////////////////////////
-    b2Vec2 r;
-    b2Vec2 g = WORLD->GetGravity();
-    for(int a = 0; a < hashWidth; a++)
-	{
-		for(int b = 0; b < hashHeight; b++)
-		{
-			int couNeighBoords = [self NeighBoordsFind: a : b  : 0];
 
-            for (int i=0; i < couNeighBoords; i++)
-             {
-               int a1 = InHashCellIndexes[i];
-               liquid[a1].mDensity = 0.f;
-                 
-               for (int j = 0; j < couNeighBoords; j++)
-                    if  (i != j)                                     // расчет плотностей и давлений
-                    {
-                     int a2 = InHashCellIndexes[j];
-                     r = liquid[a1].mPos - liquid[a2].mPos;
-                        liquid[a1].mDensity += gParticleMass * [self WPoly6:r];
-                    }
-               liquid[a1].mPress =[self CalculatePressure: liquid[i].mDensity];
-            }
-		}
-    }    
-    tVector2 tmp;
-
-    int i;
-//
-    for (i = mNumPoints ; i-- != 0 ; )
-    {
-        liquid[i].mBodyForce=gParticleMass * g;
-        liquid[i].mPressureForce  =  b2Vec2(0.0f, 0.0f);
-        liquid[i].mViscosityForce =  b2Vec2(0.0f, 0.0f);             // инициализация плотностей сил
-    }
-   
-    for(int a = 0; a < hashWidth; a++)                  // расчет сил
-	{
-		for(int b = 0; b < hashHeight; b++)
-		{
-			int couNeighBoords = [self NeighBoordsFind: a : b  : 0];
-            
-            for (int i=0; i < couNeighBoords; i++)
-            {
-                int a1 = InHashCellIndexes[i];
-                for (int j = i+1; j < couNeighBoords; j++)
-                    {
-                      int a2 = InHashCellIndexes[j];
-                      if (liquid[a2].mDensity > eps)
-                         {
-                            r = liquid[a1].mPos - liquid[a2].mPos;
-                            if (LenSq(r) < gKernelH2)
-                            {
-                              tmp =(gParticleMass * (liquid[a1].mPress + liquid[a2].mPress) /(2.0f * liquid[a2].mDensity) )*
-                                     [self WSpikyGrad:r];
-                              liquid[a1].mPressureForce -= tmp;
-                              liquid[a2].mPressureForce += tmp;                                
-                              tmp = (gViscosity * gParticleMass * [self WViscosityLap:r] / liquid[a2].mDensity)
-                                 * (liquid[a2].mVel - liquid[a1].mVel);
-                              liquid[a1].mViscosityForce += tmp;
-                              liquid[a2].mViscosityForce -= tmp;
-                            }
-                         }
-                    }
-            }
-		}
-    }
-    tVector2 force;
-    for (int i = 0 ; i < mNumPoints ; ++i)                // пересечет новых положений
-    {
-        force =liquid[i].mBodyForce+liquid[i].mPressureForce+liquid[i].mViscosityForce; 
-        // use verlet to integrate
-        tScalar damping = 0.01f; // 0-1             
-        tVector2 tmp = liquid[i].mPos;
-        liquid[i].mPos += (1.0f - damping) *
-           (liquid[i].mPos - liquid[i].mOldPos) +
-           (gTimeStep * gTimeStep / gParticleMass) * force;     
-        liquid[i].mOldPos = tmp;
-        // cache velocity as it's useful
-        liquid[i].mVel = (1.f / gTimeStep)*
-                    (liquid[i].mPos - liquid[i].mOldPos) ;
-    }
-    
-    ///////////////////////
     
 }
 
 -(void) tick: (ccTime) dt
 {//*
-    dt = 1.f / 60;
-    [self Integrate:dt];
-    [self Check];
-    [self PreventParticleCohabilities ];
-   // [self spritevisibles];
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    [self bodytouchtest:dt];
-    for(NSInteger i=0;i<mNumPoints;i++)
-      {
-       liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPos.x / CC_CONTENT_SCALE_FACTOR(),
-                                   PTM_RATIO * liquid[i].mPos.y / CC_CONTENT_SCALE_FACTOR());
-    
-      }
+//    dt = 1.f / 60;
+//    [self Integrate:dt];
+//    [self Check];
+//    [self PreventParticleCohabilities ];
+//   // [self spritevisibles];
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//    [self bodytouchtest:dt];
+//    for(NSInteger i=0;i<mNumPoints;i++)
+//      {
+//       liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPos.x / CC_CONTENT_SCALE_FACTOR(),
+//                                   PTM_RATIO * liquid[i].mPos.y / CC_CONTENT_SCALE_FACTOR());
+//    
+//      }
 }
 
 - (void)accelerometer:(UIAccelerometer*)accelerometer didAccelerate:(UIAcceleration*)acceleration
@@ -939,240 +748,14 @@ float cube(float a)
 //==============================================================
 // CalculatePressure
 //==============================================================
--(float) CalculatePressure : (float) density
-{
-    return gGasK * (cube(density/gDensity0) - 1.0f);
-}
-
-
-/*//
- 
- int gWindowW;
- int gWindowH;
- 
- // render individual particles or a filled in grid
- bool gRenderParticles;
- int gNRenderSamplesX;
- int gNRenderSamplesY;
- tScalar gRenderDensityMin;
- tScalar gRenderDensityMax;
- 
- // x ranges from 0 to domainX
- tScalar gDomainX;
- // y ranges from 0 to domainY
- tScalar gDomainY;
- 
- // width of the container - leave some space for movement
- tScalar gContainerWidth;
- tScalar gContainerHeight;
- 
- // position of the bottom left hand corner of the container.
- tScalar gContainerX;
- tScalar gContainerY;
- 
- // initial height of the fluid surface
- tScalar gInitialFluidHeight;
- 
- // gravity - acceleration
- tVector2 gGravity;
- 
- // fluid density - this is kg/m2 (since 2D)
- tScalar gDensity0;
- 
- // number of moving particles
- int gNParticles;
- 
- // gViscosity
- tScalar gViscosity;
- 
- // relationship of pressure to density when using eq of state
- // P = gGasK((density/gDensity0)^2 - 1)
- tScalar gGasK;
- 
- // integration gTimeStep - for simplicity (especially when using
- // verlet etc) this will be constant so doesn't need to be passed
- // around, at least within this file
- tScalar gTimeStep;
- 
- // scale physics time
- tScalar gTimeScale;
- 
- // radius of influence of each particle
- tScalar gParticleRadius;
- 
- // mass of each particle - gets initialised at startup
- tScalar gParticleMass;
- 
- // slight hack for the boundary - apply force proportional to this
- // when within gBoundaryForceScaleDist of the (lower?) boundary
- tScalar gBoundaryForceScale;
- tScalar gBoundaryForceScaleDist;
- 
- // for the kernels
- tScalar gKernelH;
- tScalar gKernelH9;
- tScalar gKernelH6;
- tScalar gKernelH4;
- tScalar gKernelH3;
- tScalar gKernelH2;
- 
- // normalising factors for the kernels
- tScalar gWPoly6Scale = 0.0f;
- tScalar gWSpikyScale = 0.0f;
- tScalar gWViscosityScale = 0.0f;
- tScalar gWLucyScale = 0.0f;
- 
- // The array of gNParticles particles
- tParticle * gParticles = 0;
- 
- // use a grid to speed up the integrals since we only need to use
- // nearby particles
- tSpatialGrid * gSpatialGrid = 0;
- 
- // create an object on startup?
- bool gCreateObject;
- ::tRectangle * gRectangle = 0;
- // ratio of object density to the liquid
- tScalar gObjectDensityFrac;
- // bit hacky - extra force stopping objects getting "welded"
- tScalar gObjectBoundaryScale;
- // Extra buoyancy because of non-realistic pressure
- tScalar gObjectBuoyancyScale;
- 
- // for user interaction - when the user clicks, record the mouse
- // position so we can track it afterwards
- enum tInteractionMode
+-(tScalar) CalculatePressure : (tScalar) density
  {
- INTERACTION_NONE,
- INTERACTION_BOX,
- INTERACTION_CONTAINER,
- INTERACTION_FOUNTAIN
- };
- tInteractionMode gInteractionMode = INTERACTION_NONE;
- tVector2 gOldMousePos(0.0f, 0.0f);
- 
- //==============================================================
- // A bunch of Kernels follow - not all of them get used but it's nice
- // to have a menu to choose from :)
- //==============================================================
- 
- //==============================================================
- // WPoly6
- //==============================================================
- inline tScalar WPoly6(const tVector2 & r)
- {
- tScalar r2 = r.GetLengthSq();
- if (r2 > gKernelH2) return 0.0f;
- tScalar a = gKernelH2 - r2;
- return gWPoly6Scale * a * a * a;
+ return gGasK * (cube(density/gDensity0) - 1.0f);
  }
- 
- //==============================================================
- // WPoly6Grad
- //==============================================================
- inline tVector2 WPoly6Grad(const tVector2 & r)
- {
- tScalar r2 = r.GetLengthSq();
- if (r2 > gKernelH2) return tVector2(0.0f, 0.0f);
- const tScalar f = -6.0f * gWPoly6Scale;
- tScalar a = gKernelH2 - r2;
- tScalar b = f * a * a;
- return tVector2(b * r.x, b * r.y);
- }
- 
- //==============================================================
- // WSpiky
- //==============================================================
- inline tScalar WSpiky(const tVector2 & R)
- {
- tScalar r2 = R.GetLengthSq();
- if (r2 > gKernelH2) return 0.0f;
- tScalar a = gKernelH - Sqrt(r2);
- return gWSpikyScale * a * a * a;
- }
- 
- //==============================================================
- // WSpikyGrad
- //==============================================================
- inline tVector2 WSpikyGrad(const tVector2 & R)
- {
- tScalar r2 = R.GetLengthSq();
- if (r2 > gKernelH2) return tVector2(0.0f, 0.0f);
- static const tScalar minR2 = 1.0E-12;
- if (r2 < minR2) r2 = minR2;
- tScalar r = Sqrt(r2);
- tScalar a = -3.0f * gWSpikyScale * (gKernelH - r) * (gKernelH - r) / r;
- return tVector2(a * R.x, a * R.y);
- }
- 
- //==============================================================
- // WViscosity
- //==============================================================
- inline tScalar WViscosity(const tVector2 & R)
- {
- tScalar r2 = R.GetLengthSq();
- if (r2 > gKernelH2) return 0.0f;
- static const tScalar minR2 = 1.0E-12;
- if (r2 < minR2) r2 = minR2;
- tScalar r = Sqrt(r2);
- tScalar r3 = r * r * r;
- return gWViscosityScale * ( ( (-r3 / (2.0f * gKernelH3)) +
- (r2 / gKernelH2) +
- gKernelH / (2.0f * r)) - 1.0f);
- }
- 
- //========================================================
- // WViscosityLap
- //========================================================
- inline tScalar WViscosityLap(const tVector2 & R)
- {
- tScalar r2 = R.GetLengthSq();
- if (r2 > gKernelH2) return 0.0f;
- tScalar r = Sqrt(r2);
- return gWViscosityScale * (6.0f / gKernelH3) * (gKernelH - r);
- }
- 
- //==============================================================
- // WLucy
- // My cat's called Lucy
- //==============================================================
- inline tScalar WLucy(const tVector2 & R)
- {
- tScalar r2 = R.GetLengthSq();
- if (r2 > gKernelH2) return 0.0f;
- tScalar r = Sqrt(r2);
- tScalar a = (1.0f + 3.0f * r / gKernelH) * Cube(1 - r / gKernelH);
- return gWLucyScale * a;
- }
- 
- //==============================================================
- // WLucyGrad
- // If you're feeling lazy:
- // http://www.calc101.com/webMathematica/derivatives.jsp
- // with
- // (1 + 3 * ((x^2 + y^2)^0.5)/H) * ((1 - ((x^2 + y^2)^0.5)/H)^3)
- //==============================================================
- inline tVector2 WLucyGrad(const tVector2 & R)
- {
- tScalar r2 = R.GetLengthSq();
- if (r2 > gKernelH2) return tVector2(0.0f, 0.0f);
- tScalar r = Sqrt(r2);
- tScalar a = -12.0f * (gKernelH2 - 2.0f * r * gKernelH + r2) / gKernelH4;
- return tVector2(a * R.x, a * R.y);
- }
- 
- //==============================================================
- // CalculatePressure
- //==============================================================
- inline tScalar CalculatePressure(tScalar density)
- {
- return gGasK * (Cube(density/gDensity0) - 1.0f);
- }
- 
- //==============================================================
- // CalculateNewParticles
- //==============================================================
- void CalculateNewParticles()
+//==============================================================
+// CalculateNewParticles
+//==============================================================
+-(void) CalculateNewParticles
  {
  tVector2 force;
  for (int i = 0 ; i < gNParticles ; ++i)
@@ -1193,20 +776,46 @@ float cube(float a)
  (gParticles[i].mR - gParticles[i].mOldR) / gTimeStep;
  }
  }
+//==============================================================
+// CalculateNormalField
+//==============================================================
+-(void) CalculateNormalField
+{
+    int i;
+    tSpatialGridIterator gridIter;
+    
+    for (i = gNParticles ; i-- != 0 ; )
+    {
+        gParticles[i].mCs = 0.0f;
+        for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid) ;
+             particle != 0 ;
+             particle = gridIter.GetNext(*gSpatialGrid))
+        {
+            if (particle->mDensity > 0.0f)
+            {
+                gParticles[i].mCs += gParticleMass *
+               [self WPoly6 : (gParticles[i].mR - particle->mR)/particle->mDensity ];
+            }
+        }
+    }
+
+
+
+/*// 
  
- //==============================================================
- // AddBoundaryForce
- // adds to the force var passed in
- //==============================================================
- inline void AddBoundaryForce(const tVector2 & pos, tVector2 & force,
- tScalar dist, tScalar scale)
- {
+  //==============================================================  |__________________________
+ // AddBoundaryForce                                                |
+ // adds to the force var passed in                                 |  по идее это нахрен
+ //==============================================================   |  у нас свои 
+-(void) AddBoundaryForce :(const tVector2) pos : (tVector2) force:  |  ограничения для жидкости
+(tScalar) dist: (tScalar) scale                                     |
+ {                                                                  |
  tScalar delta = pos.y - gContainerY;
  if (delta < 0.0f) delta = 0.0f;
  if (delta < dist)
- force.y += scale * (1.0f - Sq(delta/dist));
+ force.y += scale * (1.0f - (delta/dist)*(delta/dist));
  }
- 
+  
  //==============================================================
  // AddBoundaryForce
  // slightly hacky, but just do this on the lower boundary to stop
@@ -1217,72 +826,17 @@ float cube(float a)
  for (int i = 0 ; i < gNParticles ; ++i)
  {
  AddBoundaryForce(gParticles[i].mR,
- gParticles[i].mBodyForce,
- gBoundaryForceScaleDist,
- gBoundaryForceScale);
- }
- }
+ gParticles[i].mBodyForce,                                          |
+ gBoundaryForceScaleDist,                                           |
+ gBoundaryForceScale);                                              |
+ }                                                                  |
+ }                                                                  |_______________________________
  
- //==============================================================
- // ImposeBoundaryConditions
- //==============================================================
- void ImposeBoundaryConditions()
- {
- // velocity scaling when colliding with walls
- tVector2 normal;
- for (int i = gNParticles ; i-- != 0 ; )
- {
- if (gParticles[i].mR.x < gContainerX)
- {
- gParticles[i].mR.x = gContainerX;
- }
- else if (gParticles[i].mR.x > gContainerX + gContainerWidth)
- {
- gParticles[i].mR.x = gContainerX + gContainerWidth;
- }
- if (gParticles[i].mR.y < gContainerY)
- {
- gParticles[i].mR.y = gContainerY;
- }
- else if (gParticles[i].mR.y > gContainerY + gContainerHeight)
- {
- gParticles[i].mR.y = gContainerY + gContainerHeight;
- }
- 
- if (gRectangle)
- {
- if (gRectangle->MovePointOutOfObject(gParticles[i].mR, normal))
- {
- // do nothing extra
- }
- }
- }
- }
+
  
  #ifdef CALC_NORMAL_FIELD
  
- //==============================================================
- // CalculateNormalField
- //==============================================================
- void CalculateNormalField()
- {
- int i;
- tSpatialGridIterator gridIter;
  
- for (i = gNParticles ; i-- != 0 ; )
- {
- gParticles[i].mCs = 0.0f;
- for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid) ;
- particle != 0 ;
- particle = gridIter.GetNext(*gSpatialGrid))
- {
- if (particle->mDensity > 0.0f)
- {
- gParticles[i].mCs += gParticleMass * WPoly6(gParticles[i].mR - particle->mR) /
- particle->mDensity;
- }
- }
- }
  
  // now n = grad(Cs)
  for (i = gNParticles ; i-- != 0 ; )
