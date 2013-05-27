@@ -963,7 +963,7 @@ protected:
     tScalar gObjectBuoyancyScale;
     cFluidHashList          hashGridList[hashWidth][hashHeight];
     int*                    InHashCellIndexes;
-    
+    tScalar                 SCALAR_TINY;
 }
 
 // Particle Utilities

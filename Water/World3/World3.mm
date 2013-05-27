@@ -276,15 +276,11 @@ inline int hashY(float y)
 		[self schedule: @selector(tick:) interval:1.0f / 60.0f];
         gContainerX = 0;gContainerY=0;
         gContainerWidth  = (SIZE.width / 10) / PTM_RATIO;
-        gContainerHeight = (SIZE.height / 10) / PTM_RATIO;        
+        gContainerHeight = (SIZE.height / 10) / PTM_RATIO;
+        SCALAR_TINY = 1E-3;//??????????????????????????????????????????????????????????????
 	}
 
 	return self;
-}
-
--(void) NormaliseKernels
-{
-   
 }
 
 
@@ -798,8 +794,181 @@ float cube(float a)
             }
         }
     }
+    // now n = grad(Cs)
+    for (i = gNParticles ; i-- != 0 ; )
+    {
+        gParticles[i].mN.Set(0.0f, 0.0f);
+        for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid) ;
+             particle != 0 ;
+             particle = gridIter.GetNext(*gSpatialGrid))
+        {
+            if (particle->mDensity > 0.0f)
+            {
+                gParticles[i].mN +=
+                (gParticleMass * particle->mCs / particle->mDensity) *
+                [self  WPoly6Grad : (gParticles[i].mR - particle->mR)];
+            }
+        }
+    }
+}
 
+//==============================================================
+// CheckKernel
+//==============================================================
+- (void) NormaliseKernels
+{
+    int n = 1000;
+    tScalar xmin = -1.0f * gKernelH;
+    tScalar ymin = xmin;
+    tScalar xmax = -xmin;
+    tScalar ymax = xmax;
+    tScalar dx = (xmax - xmin) / (n - 1);
+    tScalar dy = (ymax - ymin) / (n - 1);
+    tScalar dA = dx * dy;
+    tScalar totalPoly6 = 0.0f;
+    tScalar totalSpiky = 0.0f;
+    tScalar totalViscosity = 0.0f;
+    tScalar totalLucy = 0.0f;
+    gWPoly6Scale = 1.0f;
+    gWSpikyScale = 1.0f;
+    gWViscosityScale = 1.0f;
+    gWLucyScale = 1.0f;
+    for (int i = 0 ; i < n ; ++i)
+    {
+        for (int j = 0 ; j < n ; ++j)
+        {
+            tVector2 r(xmin + i * dx, ymin + j * dy);
+            totalPoly6 +=[self WPoly6 : r] * dA;
+            totalSpiky += [self WSpiky : r] * dA;
+            totalViscosity += [self WViscosity : r] * dA;
+            totalLucy += [self WLucy : r] * dA;
+        }
+    }
+    gWPoly6Scale = 1.0f / totalPoly6;
+    gWSpikyScale = 1.0f / totalSpiky;
+    gWViscosityScale = 1.0f / totalViscosity;
+    gWLucyScale = 1.0f / totalLucy;
+}
 
+//==============================================================
+// CalculatePressureAndDensities
+//==============================================================
+-(void) CalculatePressureAndDensities
+{
+    tVector2 r;
+    tSpatialGridIterator gridIter;
+    for (int i = gNParticles ; i-- != 0 ; )
+    {
+        gParticles[i].mDensity = 0.0f;
+        for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid);
+             particle != 0 ;
+             particle = gridIter.GetNext(*gSpatialGrid))
+        {
+            SubVector2(r, gParticles[i].mR, particle->mR);
+            gParticles[i].mDensity += gParticleMass * [self WPoly6 : r];
+        }
+        gParticles[i].mP = [self CalculatePressure : gParticles[i].mDensity];
+    }
+}
+
+//==============================================================
+// CalculateForces
+// The forces between particles are symmetric so only calculate
+// them once per pair
+//==============================================================
+-(void) CalculateForces
+{
+    tVector2 tmp;
+    tVector2 r;
+    int i;
+    
+    for (i = gNParticles ; i-- != 0 ; )
+    {
+        ScaleVector2(gParticles[i].mBodyForce, gGravity, gParticleMass);
+        gParticles[i].mPressureForce.Set(0.0f, 0.0f);
+        gParticles[i].mViscosityForce.Set(0.0f, 0.0f);
+    }
+    
+    tSpatialGridIterator gridIter;
+    for (i = gNParticles ; i-- != 0 ; )
+    {
+        for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid) ;
+             particle != 0 ;
+             particle = gridIter.GetNext(*gSpatialGrid))
+        {
+            // only do each pair once
+            if (particle > &gParticles[i])
+                continue;
+            if (particle->mDensity > SCALAR_TINY)
+            {
+                // pressure
+                SubVector2(r, gParticles[i].mR, particle->mR);
+                if (r.GetLengthSq() < gKernelH2)
+                {
+                    ScaleVector2(tmp,
+                                 [self WSpikyGrad:r],
+                                 gParticleMass * (gParticles[i].mP + particle->mP) /
+                                 (2.0f * particle->mDensity));
+                    gParticles[i].mPressureForce -= tmp;
+                    particle->mPressureForce += tmp;
+                    
+                    // viscosity
+                    ScaleVector2(tmp,
+                                 particle->mV - gParticles[i].mV,
+                                 gViscosity * gParticleMass * [self WViscosityLap : r] / particle->mDensity);
+                    gParticles[i].mViscosityForce += tmp;
+                    particle->mViscosityForce -= tmp;
+                }
+            }
+        }
+    }
+    
+    //AddBoundaryForces();
+}
+
+//==============================================================
+// PreventParticleCohabitation
+//==============================================================
+-(void) PreventParticleCohabitation
+{
+    tScalar minDist = 0.5f * gParticleRadius;
+    tScalar minDist2 = minDist * minDist;
+    tScalar resolveFrac = 0.1f;
+    tVector2 delta;
+    tSpatialGridIterator gridIter;
+    for (int i = gNParticles ; i-- != 0 ; )
+    {
+        for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid) ;
+             particle != 0 ;
+             particle = gridIter.GetNext(*gSpatialGrid))
+        {
+            // only need to check each pair once
+            if (particle > &gParticles[i])
+                continue;
+            SubVector2(delta, particle->mR, gParticles[i].mR);
+            tScalar deltaLenSq = delta.GetLengthSq();
+            if (deltaLenSq > minDist2)
+                continue;
+            if (deltaLenSq > SCALAR_TINY)
+            {
+                tScalar deltaLen = sqrt(deltaLenSq);
+                tScalar diff = resolveFrac * 0.5f * (deltaLen - minDist) / deltaLen;
+                delta *= diff;
+                gParticles[i].mR += delta;
+                gParticles[i].mOldR += delta;
+                particle->mR -= delta;
+                particle->mOldR -= delta;
+            }
+            else
+            {
+                gParticles[i].mR.x += 0.5f * resolveFrac * minDist;
+                gParticles[i].mOldR.x += 0.5f * resolveFrac * minDist;
+                particle->mR.x -= 0.5f * resolveFrac * minDist;
+                particle->mOldR.x -= 0.5f * resolveFrac * minDist;
+            }
+        }
+    }
+}
 
 /*// 
  
@@ -838,64 +1007,11 @@ float cube(float a)
  
  
  
- // now n = grad(Cs)
- for (i = gNParticles ; i-- != 0 ; )
- {
- gParticles[i].mN.Set(0.0f, 0.0f);
- for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid) ;
- particle != 0 ;
- particle = gridIter.GetNext(*gSpatialGrid))
- {
- if (particle->mDensity > 0.0f)
- {
- gParticles[i].mN +=
- (gParticleMass * particle->mCs / particle->mDensity) *
- WPoly6Grad(gParticles[i].mR - particle->mR);
- }
- }
- }
- }
  #endif
  
- //==============================================================
- // CheckKernel
- //==============================================================
- void NormaliseKernels()
- {
- int n = 1000;
- tScalar xmin = -1.0f * gKernelH;
- tScalar ymin = xmin;
- tScalar xmax = -xmin;
- tScalar ymax = xmax;
- tScalar dx = (xmax - xmin) / (n - 1);
- tScalar dy = (ymax - ymin) / (n - 1);
- tScalar dA = dx * dy;
- tScalar totalPoly6 = 0.0f;
- tScalar totalSpiky = 0.0f;
- tScalar totalViscosity = 0.0f;
- tScalar totalLucy = 0.0f;
- gWPoly6Scale = 1.0f;
- gWSpikyScale = 1.0f;
- gWViscosityScale = 1.0f;
- gWLucyScale = 1.0f;
- for (int i = 0 ; i < n ; ++i)
- {
- for (int j = 0 ; j < n ; ++j)
- {
- tVector2 r(xmin + i * dx, ymin + j * dy);
- totalPoly6 += WPoly6(r) * dA;
- totalSpiky += WSpiky(r) * dA;
- totalViscosity += WViscosity(r) * dA;
- totalLucy += WLucy(r) * dA;
- }
- }
- gWPoly6Scale = 1.0f / totalPoly6;
- gWSpikyScale = 1.0f / totalSpiky;
- gWViscosityScale = 1.0f / totalViscosity;
- gWLucyScale = 1.0f / totalLucy;
- }
  
- //========================================================
+ 
+ //========================================================----------------------------------------------------------
  // tResolver
  //========================================================
  class tResolver : public tPenetrationResolver
@@ -909,7 +1025,7 @@ float cube(float a)
  bool tResolver::ResolvePenetration(tShapeParticle & particle)
  {
  bool moved = false;
- if (particle.mPos.x < gContainerX)
+ if (particle.mPos.x < gContainerX)                                     Тоже ограничения (?)
  {
  particle.mPos.x = gContainerX;
  moved = true;
@@ -930,10 +1046,10 @@ float cube(float a)
  moved = true;
  }
  return moved;
- }
+ }                                                              ___________________________________________________________
  
  //========================================================
- // SetObjectForces
+ // SetObjectForces                                             ???????????????????????????????????????????
  //========================================================
  void SetObjectForces()
  {
@@ -1023,7 +1139,7 @@ float cube(float a)
  }
  
  //========================================================
- // IntegrateObjects
+ // IntegrateObjects                                          ?????????????????????????????????????????
  //========================================================
  void IntegrateObjects()
  {
@@ -1039,128 +1155,12 @@ float cube(float a)
  gRectangle->ResolveConstraints(4, resolver);
  }
  
- //==============================================================
- // CalculatePressureAndDensities
- //==============================================================
- void CalculatePressureAndDensities()
- {
- tVector2 r;
- tSpatialGridIterator gridIter;
- for (int i = gNParticles ; i-- != 0 ; )
- {
- gParticles[i].mDensity = 0.0f;
- for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid);
- particle != 0 ;
- particle = gridIter.GetNext(*gSpatialGrid))
- {
- SubVector2(r, gParticles[i].mR, particle->mR);
- gParticles[i].mDensity += gParticleMass * WPoly6(r);
- }
- gParticles[i].mP = CalculatePressure(gParticles[i].mDensity);
- }
- }
+
+ 
+
  
  //==============================================================
- // CalculateForces
- // The forces between particles are symmetric so only calculate
- // them once per pair
- //==============================================================
- void CalculateForces()
- {
- tVector2 tmp;
- tVector2 r;
- int i;
- 
- for (i = gNParticles ; i-- != 0 ; )
- {
- ScaleVector2(gParticles[i].mBodyForce, gGravity, gParticleMass);
- gParticles[i].mPressureForce.Set(0.0f, 0.0f);
- gParticles[i].mViscosityForce.Set(0.0f, 0.0f);
- }
- 
- tSpatialGridIterator gridIter;
- for (i = gNParticles ; i-- != 0 ; )
- {
- for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid) ;
- particle != 0 ;
- particle = gridIter.GetNext(*gSpatialGrid))
- {
- // only do each pair once
- if (particle > &gParticles[i])
- continue;
- if (particle->mDensity > SCALAR_TINY)
- {
- // pressure
- SubVector2(r, gParticles[i].mR, particle->mR);
- if (r.GetLengthSq() < gKernelH2)
- {
- ScaleVector2(tmp,
- WSpikyGrad(r),
- gParticleMass * (gParticles[i].mP + particle->mP) /
- (2.0f * particle->mDensity));
- gParticles[i].mPressureForce -= tmp;
- particle->mPressureForce += tmp;
- 
- // viscosity
- ScaleVector2(tmp,
- particle->mV - gParticles[i].mV,
- gViscosity * gParticleMass * WViscosityLap(r) / particle->mDensity);
- gParticles[i].mViscosityForce += tmp;
- particle->mViscosityForce -= tmp;
- }
- }
- }
- }
- 
- AddBoundaryForces();
- }
- 
- //==============================================================
- // PreventParticleCohabitation
- //==============================================================
- void PreventParticleCohabitation()
- {
- tScalar minDist = 0.5f * gParticleRadius;
- tScalar minDist2 = Sq(minDist);
- tScalar resolveFrac = 0.1f;
- tVector2 delta;
- tSpatialGridIterator gridIter;
- for (int i = gNParticles ; i-- != 0 ; )
- {
- for (tParticle * particle = gridIter.FindFirst(gParticles[i].mR, *gSpatialGrid) ;
- particle != 0 ;
- particle = gridIter.GetNext(*gSpatialGrid))
- {
- // only need to check each pair once
- if (particle > &gParticles[i])
- continue;
- SubVector2(delta, particle->mR, gParticles[i].mR);
- tScalar deltaLenSq = delta.GetLengthSq();
- if (deltaLenSq > minDist2)
- continue;
- if (deltaLenSq > SCALAR_TINY)
- {
- tScalar deltaLen = Sqrt(deltaLenSq);
- tScalar diff = resolveFrac * 0.5f * (deltaLen - minDist) / deltaLen;
- delta *= diff;
- gParticles[i].mR += delta;
- gParticles[i].mOldR += delta;
- particle->mR -= delta;
- particle->mOldR -= delta;
- }
- else
- {
- gParticles[i].mR.x += 0.5f * resolveFrac * minDist;
- gParticles[i].mOldR.x += 0.5f * resolveFrac * minDist;
- particle->mR.x -= 0.5f * resolveFrac * minDist;
- particle->mOldR.x -= 0.5f * resolveFrac * minDist;
- }
- }
- }
- }
- 
- //==============================================================
- // DoFountain
+ // DoFountain                                                      ?????????????????????????????????????????????????
  //==============================================================
  void DoFountain()
  {
@@ -1251,147 +1251,147 @@ float cube(float a)
  gRectangle->SetParticleForces(gGravity);
  }
  }
- 
- //==============================================================
- // DrawContainer
- //==============================================================
- void DrawContainer()
- {
- GLCOLOR3(1.0f,1.0f, 1.0f);
- glBegin(GL_QUADS);
- GLVERTEX2(gContainerX, gContainerY + gContainerHeight);
- GLVERTEX2(gContainerX, gContainerY);
- GLVERTEX2(gContainerX + gContainerWidth, gContainerY);
- GLVERTEX2(gContainerX + gContainerWidth, gContainerY + gContainerHeight);
- GLVERTEX2(gContainerX, gContainerY + gContainerHeight);
- glEnd();
- }
- 
- //========================================================
- // DrawQuad
- //========================================================
- inline void DrawQuad(const tVector2 & min, const tVector2 & max)
- {
- GLVERTEX2(min.x, min.y);
- GLVERTEX2(max.x, min.y);
- GLVERTEX2(max.x, max.y);
- GLVERTEX2(min.x, max.y);
- }
- 
- //==============================================================
- // DrawVoid
- //==============================================================
- void DrawVoid()
- {
- GLCOLOR3(0.5f,0.5f, 0.5f);
- glBegin(GL_QUADS);
- DrawQuad(tVector2(0.0f, 0.0f), tVector2(gDomainX, gContainerY));
- DrawQuad(tVector2(0.0f, gContainerY + gContainerHeight),
- tVector2(gDomainX, gDomainY));
- DrawQuad(tVector2(0.0f, 0.0f), tVector2(gContainerX, gDomainY));
- DrawQuad(tVector2(gContainerX + gContainerWidth, 0.0f),
- tVector2(gDomainX, gDomainY));
- glEnd();
- }
- 
- //==============================================================
- // DrawGridWater
- // sets up a grid to render between the water particles...
- //==============================================================
- void DrawGridWater()
- {
- glColor3f(0.0f,0.0f, 1.0f);
- 
- // number points
- int nx = gNRenderSamplesX;
- int ny = gNRenderSamplesY;
- tScalar dx = gContainerWidth / (nx - 1);
- tScalar dy = gContainerHeight / (ny - 1);
- 
- static tArray2D<tScalar> densities(nx, ny);
- densities.Resize(nx, ny);
- 
- tSpatialGridIterator gridIter;
- tVector2 r;
- for (int ix = nx ; ix-- != 0 ; )
- {
- for (int iy = ny ; iy-- != 0 ; )
- {
- r.Set(gContainerX + ix * dx, gContainerY + iy * dy);
- // now evaluate the density at this point
- tScalar d = 0.0f;
- for (tParticle * particle = gridIter.FindFirst(r, *gSpatialGrid) ;
- particle != 0 ;
- particle = gridIter.GetNext(*gSpatialGrid))
- {
- d += gParticleMass * WPoly6(r - particle->mR);
- }
- densities(ix, iy) = d;
- }
- }
- 
- tScalar min = gRenderDensityMin;
- tScalar max = gRenderDensityMax;
- glBegin(GL_QUADS);
- int i, j;
- tScalar grey;
- for (i = nx-1 ; i-- != 0 ; )
- {
- for (j = ny-1 ; j-- != 0 ; )
- {
- tScalar x = gContainerX + i * dx;
- tScalar y = gContainerY + j * dy;
- grey = (densities(i, j) - min) / (max - min);
- GLCOLOR3(0, 0, grey);
- GLVERTEX2(x, y);
- grey = (densities(i+1, j) - min) / (max - min);
- GLCOLOR3(0, 0, grey);
- GLVERTEX2(x + dx, y);
- grey = (densities(i+1, j+1) - min) / (max - min);
- GLCOLOR3(0, 0, grey);
- GLVERTEX2(x + dx, y + dy);
- grey = (densities(i, j+1) - min) / (max - min);
- GLCOLOR3(0, 0, grey);
- GLVERTEX2(x, y + dy);
- }
- }
- glEnd();
- }
- 
- 
- //==============================================================
- // DrawWater
- //==============================================================
- void DrawWater()
- {
- if (gRenderParticles)
- {
- int i;
- GLCOLOR3(0.0f,0.0f, 1.0f);
- glPointSize(6);
- glEnable(GL_POINT_SMOOTH);
- glBegin(GL_POINTS);
- for (i = gNParticles ; i-- != 0 ; )
- {
- GLVERTEX2(gParticles[i].mR.x, gParticles[i].mR.y);
- }
- glEnd();
- }
- else
- {
- DrawGridWater();
- }
- }
- 
- //========================================================
- // DrawObjects
- //========================================================
- void DrawObjects()
- {
- if (gRectangle)
- gRectangle->Draw();
- }
- 
+// ________________________________________________________________________________________________________________________________________
+// //==============================================================                                                                     |
+// // DrawContainer                                                                                                                     |
+// //==============================================================                                                                     |
+// void DrawContainer()                                                                                                                 |
+// {                                                                                                                                    |
+// GLCOLOR3(1.0f,1.0f, 1.0f);
+// glBegin(GL_QUADS);
+// GLVERTEX2(gContainerX, gContainerY + gContainerHeight);
+// GLVERTEX2(gContainerX, gContainerY);
+// GLVERTEX2(gContainerX + gContainerWidth, gContainerY);
+// GLVERTEX2(gContainerX + gContainerWidth, gContainerY + gContainerHeight);
+// GLVERTEX2(gContainerX, gContainerY + gContainerHeight);
+// glEnd();
+// }
+// 
+// //========================================================
+// // DrawQuad
+// //========================================================
+// inline void DrawQuad(const tVector2 & min, const tVector2 & max)
+// {
+// GLVERTEX2(min.x, min.y);
+// GLVERTEX2(max.x, min.y);
+// GLVERTEX2(max.x, max.y);
+// GLVERTEX2(min.x, max.y);
+// }
+// 
+// //==============================================================
+// // DrawVoid
+// //==============================================================
+// void DrawVoid()
+// {
+// GLCOLOR3(0.5f,0.5f, 0.5f);
+// glBegin(GL_QUADS);
+// DrawQuad(tVector2(0.0f, 0.0f), tVector2(gDomainX, gContainerY));
+// DrawQuad(tVector2(0.0f, gContainerY + gContainerHeight),
+// tVector2(gDomainX, gDomainY));
+// DrawQuad(tVector2(0.0f, 0.0f), tVector2(gContainerX, gDomainY));
+// DrawQuad(tVector2(gContainerX + gContainerWidth, 0.0f),
+// tVector2(gDomainX, gDomainY));
+// glEnd();
+// }
+// 
+// //==============================================================
+// // DrawGridWater
+// // sets up a grid to render between the water particles...
+// //==============================================================
+// void DrawGridWater()
+// {
+// glColor3f(0.0f,0.0f, 1.0f);
+// 
+// // number points
+// int nx = gNRenderSamplesX;
+// int ny = gNRenderSamplesY;
+// tScalar dx = gContainerWidth / (nx - 1);
+// tScalar dy = gContainerHeight / (ny - 1);
+// 
+// static tArray2D<tScalar> densities(nx, ny);
+// densities.Resize(nx, ny);
+// 
+// tSpatialGridIterator gridIter;
+// tVector2 r;
+// for (int ix = nx ; ix-- != 0 ; )
+// {
+// for (int iy = ny ; iy-- != 0 ; )
+// {
+// r.Set(gContainerX + ix * dx, gContainerY + iy * dy);
+// // now evaluate the density at this point
+// tScalar d = 0.0f;
+// for (tParticle * particle = gridIter.FindFirst(r, *gSpatialGrid) ;
+// particle != 0 ;
+// particle = gridIter.GetNext(*gSpatialGrid))
+// {
+// d += gParticleMass * WPoly6(r - particle->mR);
+// }
+// densities(ix, iy) = d;
+// }
+// }
+// 
+// tScalar min = gRenderDensityMin;
+// tScalar max = gRenderDensityMax;
+// glBegin(GL_QUADS);
+// int i, j;
+// tScalar grey;
+// for (i = nx-1 ; i-- != 0 ; )
+// {
+// for (j = ny-1 ; j-- != 0 ; )
+// {
+// tScalar x = gContainerX + i * dx;
+// tScalar y = gContainerY + j * dy;
+// grey = (densities(i, j) - min) / (max - min);
+// GLCOLOR3(0, 0, grey);
+// GLVERTEX2(x, y);
+// grey = (densities(i+1, j) - min) / (max - min);
+// GLCOLOR3(0, 0, grey);
+// GLVERTEX2(x + dx, y);
+// grey = (densities(i+1, j+1) - min) / (max - min);
+// GLCOLOR3(0, 0, grey);
+// GLVERTEX2(x + dx, y + dy);
+// grey = (densities(i, j+1) - min) / (max - min);
+// GLCOLOR3(0, 0, grey);
+// GLVERTEX2(x, y + dy);
+// }
+// }
+// glEnd();
+// }
+// 
+// 
+// //==============================================================
+// // DrawWater
+// //==============================================================
+// void DrawWater()
+// {
+// if (gRenderParticles)
+// {
+// int i;
+// GLCOLOR3(0.0f,0.0f, 1.0f);
+// glPointSize(6);
+// glEnable(GL_POINT_SMOOTH);
+// glBegin(GL_POINTS);
+// for (i = gNParticles ; i-- != 0 ; )
+// {
+// GLVERTEX2(gParticles[i].mR.x, gParticles[i].mR.y);
+// }
+// glEnd();
+// }
+// else
+// {
+// DrawGridWater();
+// }
+// }
+// 
+// //========================================================
+// // DrawObjects
+// //========================================================
+// void DrawObjects()
+// {                                                                                                                            |
+// if (gRectangle)                                                                                                              |
+// gRectangle->Draw();                                                                                                          |
+// }                                                                                                                            |
+// _______________________________________________________________________________________________________________________________
  //==============================================================
  // Display
  //==============================================================
@@ -1452,103 +1452,103 @@ float cube(float a)
  Display();
  }
  
- //========================================================
- // ApplyImpulse
- //========================================================
- void ApplyImpulse(const tVector2 & deltaVel)
- {
- for (int i = gNParticles ; i-- != 0 ; )
- {
- gParticles[i].mV += deltaVel;
- gParticles[i].mOldR -= deltaVel * gTimeStep;
- }
- }
- 
- //==============================================================
- // MoveContainer
- //==============================================================
- void MoveContainer(const tVector2 & dR)
- {
- gContainerX += dR.x;
- gContainerY += dR.y;
- }
- 
- //==============================================================
- // MoveBox
- //==============================================================
- void MoveBox(const tVector2 & dR)
- {
- if (gRectangle)
- gRectangle->Move(dR);
- }
- 
- //==============================================================
- // Keyboard
- //==============================================================
- void Keyboard( unsigned char key, int x, int y )
- {
- switch (key)
- {
- case 'q':
- case 27:
- exit(0);
- break;
- case 'a':
- ApplyImpulse(tVector2(-1.0f, 0.0f));
- break;
- case 'd':
- ApplyImpulse(tVector2(1.0f, 0.0f));
- break;
- case 's':
- ApplyImpulse(tVector2(0.0f, -1.0f));
- break;
- case 'w':
- ApplyImpulse(tVector2(0.0f, 1.0f));
- break;
- default:
- break;
- }
- }
- 
- //==============================================================
- // Mouse
- //==============================================================
- void Mouse(int button, int state, int x, int y)
- {
- if (GLUT_UP == state)
- {
- gInteractionMode = INTERACTION_NONE;
- return;
- }
- 
- int h = glutGet(GLUT_WINDOW_HEIGHT);
- gOldMousePos.Set(x, h-y);
- if (GLUT_LEFT_BUTTON == button)
- gInteractionMode = INTERACTION_CONTAINER;
- else if (GLUT_RIGHT_BUTTON == button)
- gInteractionMode = INTERACTION_BOX;
- else if (GLUT_MIDDLE_BUTTON == button)
- gInteractionMode = INTERACTION_FOUNTAIN;
- }
- 
- //==============================================================
- // MouseMotion
- //==============================================================
- void MouseMotion(int x, int y)
- {
- int h = glutGet(GLUT_WINDOW_HEIGHT);
- tVector2 newPos(x, h-y);
- tVector2 delta = (gDomainX / gWindowW) * (newPos - gOldMousePos);
- if (INTERACTION_CONTAINER == gInteractionMode)
- {
- MoveContainer(delta);
- }
- else if (INTERACTION_BOX == gInteractionMode)
- {
- MoveBox(delta);
- }
- gOldMousePos = newPos;
- }
+// //========================================================____________________________________________________________________________________
+// // ApplyImpulse                                                                                                                              |
+// //========================================================
+// void ApplyImpulse(const tVector2 & deltaVel)
+// {
+// for (int i = gNParticles ; i-- != 0 ; )
+// {
+// gParticles[i].mV += deltaVel;
+// gParticles[i].mOldR -= deltaVel * gTimeStep;
+// }
+// }
+// 
+// //==============================================================
+// // MoveContainer
+// //==============================================================
+// void MoveContainer(const tVector2 & dR)
+// {
+// gContainerX += dR.x;
+// gContainerY += dR.y;
+// }
+// 
+// //==============================================================
+// // MoveBox
+// //==============================================================
+// void MoveBox(const tVector2 & dR)
+// {
+// if (gRectangle)
+// gRectangle->Move(dR);
+// }
+// 
+// //==============================================================
+// // Keyboard
+// //==============================================================
+// void Keyboard( unsigned char key, int x, int y )
+// {
+// switch (key)
+// {
+// case 'q':
+// case 27:
+// exit(0);
+// break;
+// case 'a':
+// ApplyImpulse(tVector2(-1.0f, 0.0f));
+// break;
+// case 'd':
+// ApplyImpulse(tVector2(1.0f, 0.0f));
+// break;
+// case 's':
+// ApplyImpulse(tVector2(0.0f, -1.0f));
+// break;
+// case 'w':
+// ApplyImpulse(tVector2(0.0f, 1.0f));
+// break;
+// default:
+// break;
+// }
+// }
+// 
+// //==============================================================
+// // Mouse
+// //==============================================================
+// void Mouse(int button, int state, int x, int y)
+// {
+// if (GLUT_UP == state)
+// {
+// gInteractionMode = INTERACTION_NONE;
+// return;
+// }
+// 
+// int h = glutGet(GLUT_WINDOW_HEIGHT);
+// gOldMousePos.Set(x, h-y);
+// if (GLUT_LEFT_BUTTON == button)
+// gInteractionMode = INTERACTION_CONTAINER;
+// else if (GLUT_RIGHT_BUTTON == button)
+// gInteractionMode = INTERACTION_BOX;
+// else if (GLUT_MIDDLE_BUTTON == button)
+// gInteractionMode = INTERACTION_FOUNTAIN;
+// }
+// 
+// //==============================================================
+// // MouseMotion
+// //==============================================================
+// void MouseMotion(int x, int y)
+// {
+// int h = glutGet(GLUT_WINDOW_HEIGHT);
+// tVector2 newPos(x, h-y);
+// tVector2 delta = (gDomainX / gWindowW) * (newPos - gOldMousePos);
+// if (INTERACTION_CONTAINER == gInteractionMode)
+// {
+// MoveContainer(delta);
+// }
+// else if (INTERACTION_BOX == gInteractionMode)
+// {
+// MoveBox(delta);
+// }
+// gOldMousePos = newPos;                                                                                                                   |
+// }____________________________________________________________________________________________________________________________________________
  
  //==============================================================
  // ReadConfig
