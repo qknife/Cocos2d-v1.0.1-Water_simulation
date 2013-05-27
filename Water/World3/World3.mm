@@ -247,7 +247,7 @@ inline int hashY(float y)
 	{
 		// enable accelerometer
 		self.isAccelerometerEnabled = YES;
-        mNumPoints = 200;
+       // mNumPoints = 200;
 		CGSize t=[Common size];
 		fluidMinX = MW(0);
 		fluidMaxX = MW(100);
@@ -255,38 +255,165 @@ inline int hashY(float y)
 		fluidMaxY = MH(100);
         knorm = 0.6f;
         ktang = 0.8f;
-        gTimeStep = 0.01f;
-        gDensity0 = 1000.0f;
-        gViscosity = 0.005f;
-        gGasK = 1.0f;
-        gKernelH9 = pow(gKernelH, 9.0f);
-        gKernelH6 = pow(gKernelH, 6.0f);
-        gKernelH4 = pow(gKernelH, 4.0f);
-        gKernelH3 = pow(gKernelH, 3.0f);
-        gKernelH2 = pow(gKernelH, 2.0f);
-        gWPoly6Scale = 0.0f;
-        gWSpikyScale = 0.0f;
-        gWViscosityScale = 0.0f;
-        gWLucyScale = 0.0f;
-        gParticles = 0;
-        gSpatialGrid = 0;
-        [self NormaliseKernels];
-        //[self Setup:true];
-		//[self Run:0 :0];		
+        [self ReadConfig];
+        [self Initialise];
+        
+        
 		[self schedule: @selector(tick:) interval:1.0f / 60.0f];
-        gContainerX = 0;gContainerY=0;
-        gContainerWidth  = (SIZE.width / 10) / PTM_RATIO;
-        gContainerHeight = (SIZE.height / 10) / PTM_RATIO;
-        SCALAR_TINY = 1E-3;//??????????????????????????????????????????????????????????????
+       // gContainerX = 0;gContainerY=0;
+       // gContainerWidth  = (SIZE.width / 10) / PTM_RATIO;
+       // gContainerHeight = (SIZE.height / 10) / PTM_RATIO;
+       // SCALAR_TINY = 1E-3;//??????????????????????????????????????????????????????????????
+        lastTime=0;thisTime=0;
 	}
 
 	return self;
 }
 
 
-float LenSq(b2Vec2 r)
+//==============================================================
+// ReadConfig
+//==============================================================
+-(void) ReadConfig
 {
-    return r.x * r.x + r.y * r.y;
+    
+    // defaults
+    gWindowW = 640;
+    gWindowH = 480;
+    gRenderParticles = false;
+    gNRenderSamplesX = 64;
+    gNRenderSamplesY = 48;
+    gRenderDensityMin = 500.0f;
+    gRenderDensityMax = 800.0f;
+    gDomainX = 2.0f;
+    tScalar gContainerWidthFrac = 0.8f;
+    tScalar gContainerHeightFrac = 0.5f;
+    tScalar gInitialFluidHeightFrac = 0.9f;
+    gGravity.Set(0.0f, -10.0f);
+    gDensity0 = 1000.0f;
+    gNParticles = 200;
+    gViscosity = 0.05f;
+    gGasK = 10.0f;
+    gTimeStep = 1.0f / 100.0f;
+    gTimeScale = 1.0f;
+    tScalar kernelScale = 5.0f;
+    gBoundaryForceScale = 0.0f;
+    gBoundaryForceScaleDist = 0.1f;
+    gCreateObject = true;
+    gObjectDensityFrac = 0.5f;
+    gObjectBoundaryScale = 20.0f;
+    gObjectBuoyancyScale = 6.0f;
+    //   ________________________________________________________________________________________________________________________________ 
+
+    gWindowW       =        640;
+    gWindowH       =        480;
+    gRenderParticles  =   false;
+    gNRenderSamplesX   =     96;
+    gNRenderSamplesY   =     64;
+    gRenderDensityMin  =    500;
+    gRenderDensityMax  =    800;
+    gDomainX           =      2.0;
+    gContainerWidthFrac    =  0.8;
+    gContainerHeightFrac   =  0.5;
+    gInitialFluidHeightFrac = 0.8;
+    gGravity.x         =       0.0;
+    gGravity.y         =     -10.0;
+    
+    gDensity0        =     1000.0;
+    gNParticles      =      400;
+    gViscosity       =        0.05;
+    gGasK            =       10.0;
+    gTimeStep       =         0.01;
+    gTimeScale       =        1.0;
+    gKernelScale      =       5.0;
+    gBoundaryForceScale   = 400.0;
+    gBoundaryForceScaleDist = 0.03;
+    gCreateObject       =  true;
+    gObjectDensityFrac   =    0.5;
+
+    gObjectBoundaryScale  =  20.0;
+
+    gObjectBuoyancyScale  =  12.0;
+    //________________________________________________________________________________________________________________________________
+    gDomainY = gDomainX * gWindowH / gWindowW;
+    gContainerWidth = gContainerWidthFrac * gDomainX;
+    gContainerHeight = gContainerHeightFrac * gDomainX;
+    gContainerX = 0.5f * gDomainX - 0.5f * gContainerWidth;
+    gContainerY = 0.1f * gDomainY;
+    gInitialFluidHeight = gInitialFluidHeightFrac * gContainerHeight;
+    gParticleRadius = sqrt(gContainerWidth * gInitialFluidHeight /
+                           (4.0f * gNParticles));
+    tScalar volume = gContainerWidth * gInitialFluidHeight;
+    gParticleMass = volume * gDensity0 / gNParticles;
+    
+    gKernelH = kernelScale * gParticleRadius;
+    gKernelH9 = pow(gKernelH, 9.0f);
+    gKernelH6 = pow(gKernelH, 6.0f);
+    gKernelH4 = pow(gKernelH, 4.0f);
+    gKernelH3 = pow(gKernelH, 3.0f);
+    gKernelH2 = pow(gKernelH, 2.0f);
+}
+
+//==============================================================
+// Initialise
+//==============================================================
+-(void) Initialise
+{
+    [self NormaliseKernels];
+    
+    gParticles = new tParticle[gNParticles];
+    gSpatialGrid = new tSpatialGrid(
+                                    tVector2(-gContainerWidth, -gContainerHeight),
+                                    tVector2(gDomainX + gContainerWidth, gDomainY + gContainerHeight), gKernelH);
+    
+    InterPriclScaleFactor = 10.0f;
+    int i, k=(int) sqrt(gNParticles);
+    for (i = 0 ; i < gNParticles ; ++i)
+    {
+        
+        
+        gParticles[i].mR.Set(
+                             gContainerX + gContainerWidth  * (i / k ) / k  ,
+                             gContainerY + gInitialFluidHeight * (i % k) / k);
+        
+        float  Factor = CC_CONTENT_SCALE_FACTOR() / PTM_RATIO;
+        CCSprite *sprite = [CCSprite spriteWithFile:@"drop.png"]; // создать указатель на спрайт
+        tVector2 p = gParticles[i].mR;
+        
+        
+        
+        sprite.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x/Factor, InterPriclScaleFactor*gParticles[i].mR.y/Factor) ;
+       // [BATCH addChild:sprite];                                  // показать спрайт
+        
+        gParticles[i].mOldR = gParticles[i].mR;
+        gParticles[i].mV.Set(0.0f, 0.0f);
+        gParticles[i].mDensity = gDensity0;
+        gParticles[i].mP = [self CalculatePressure : gDensity0];
+        gParticles[i].mPressureForce.Set(0.0f, 0.0f);
+        gParticles[i].mViscosityForce.Set(0.0f, 0.0f);
+        gParticles[i].mBodyForce.Set(0.0f, 0.0f);
+        gParticles[i].mCs = 0.0f;
+        gParticles[i].mN.Set(0.0f, 0.0f);
+        gParticles[i].mNext = 0;
+        gParticles[i].sp=sprite;        
+    }
+//
+//    gSpatialGrid->PopulateGrid(gParticles, gNParticles);
+    
+//    if (gCreateObject)
+//    {
+//        tScalar widthFrac = 0.4f;
+//        tScalar heightFrac = 0.2f;
+//        gRectangle = new ::tRectangle(widthFrac * gContainerWidth,
+//                                      heightFrac * gContainerHeight,
+//                                      gObjectDensityFrac * gDensity0);
+//        gRectangle->SetCoGPosition(
+//                                   tVector2(gContainerX + 0.5f * gContainerWidth, 
+//                                            gContainerY + gContainerHeight - 
+//                                            heightFrac * gContainerHeight));
+//        gRectangle->SetParticleForces(gGravity);
+//    }
+    
 }
 
 ////==============================================================
@@ -398,23 +525,30 @@ float LenSq(b2Vec2 r)
 
 -(void)particlesCountUp:(NSInteger)diff_
 {
+    
     CGSize size = [[CCDirector sharedDirector] winSize];
-	void *tmp = liquid;
-    intersectQueryCallback = NULL;
-	
-	liquid = (sPart *)calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
-	InHashCellIndexes = (int *) calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
-	// recreate delegates
-//	if (liquid)
+    for (int i = 0 ; i < gNParticles ; ++i)
+    {
+       [BATCH addChild:gParticles[i].sp];
+    }
+    
+//	void *tmp = liquid;
+//    intersectQueryCallback = NULL;
+//	
+//	liquid = (sPart *)calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
+//	InHashCellIndexes = (int *) calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
+//	// recreate delegates
+////	if (liquid)
+////	{
+////		intersectQueryCallback = new QueWorldInteractions(hashGridList, liquid, knorm, ktang, ParticleRadius);
+////	}
+//	if (tmp)
 //	{
-//		intersectQueryCallback = new QueWorldInteractions(hashGridList, liquid, knorm, ktang, ParticleRadius);
+//		memcpy(liquid, tmp, sizeof(sPart) * PARTICLES_COUNT);
+//		free(tmp);
 //	}
-	if (tmp)
-	{
-		memcpy(liquid, tmp, sizeof(sPart) * PARTICLES_COUNT);
-		free(tmp);
-	}
     //mNumPoints = PARTICLES_COUNT + diff_;
+  /*
     int Rowscount = (int) sqrt(mNumPoints),
         Colcount = mNumPoints/ Rowscount+1;
     float  Factor = CC_CONTENT_SCALE_FACTOR() / PTM_RATIO;
@@ -452,7 +586,7 @@ float LenSq(b2Vec2 r)
         }
        }
         
-     }
+     }//*/
 }
 
 -(void)particlesCountDown:(NSInteger)diff_
@@ -620,33 +754,9 @@ for(int a = 0; a < hashWidth; a++)
 }
 
 
--(void) PreventParticleCohabilities
-{
-
-}
-
-
--(void)Integrate:(float)deltaT
-{
-
-    
-}
-
 -(void) tick: (ccTime) dt
-{//*
-//    dt = 1.f / 60;
-//    [self Integrate:dt];
-//    [self Check];
-//    [self PreventParticleCohabilities ];
-//   // [self spritevisibles];
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    [self bodytouchtest:dt];
-//    for(NSInteger i=0;i<mNumPoints;i++)
-//      {
-//       liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPos.x / CC_CONTENT_SCALE_FACTOR(),
-//                                   PTM_RATIO * liquid[i].mPos.y / CC_CONTENT_SCALE_FACTOR());
-//    
-//      }
+{
+    [self Display :  dt];
 }
 
 - (void)accelerometer:(UIAccelerometer*)accelerometer didAccelerate:(UIAcceleration*)acceleration
@@ -730,8 +840,9 @@ void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& norm
 
 -(void)Exit
 {
-    free(liquid);
-    free(InHashCellIndexes);
+    //free(liquid);
+    //free(InHashCellIndexes);
+    free(gParticles);
 }
 
 float cube(float a)
@@ -970,6 +1081,75 @@ float cube(float a)
     }
 }
 
+-(void) Display : (float) dt
+{
+    //static int lastTime = glutGet(GLUT_ELAPSED_TIME);
+    //int thisTime = glutGet(GLUT_ELAPSED_TIME);
+    lastTime = thisTime;
+    thisTime+= dt;
+    
+    tScalar ddt = (thisTime - lastTime); //* 0.001f;
+    ddt *= gTimeScale;
+    static tScalar residual = 0.0f;
+    if (ddt > 0.2f)
+    {
+        ddt = 0.2f;
+        residual = 0.0f;
+      //  TRACE("can't keep up \n");
+    }
+    int nLoops = (int) ((ddt + residual)/ gTimeStep);
+    if (nLoops > 0)
+    {
+        residual = ddt - (nLoops * gTimeStep);
+        
+        for (int iLoop = 0 ; iLoop < nLoops ; ++iLoop)
+        {
+            [self Integrate];
+        }
+        lastTime = thisTime;
+    }
+    
+    for (int i=0;i<gNParticles;i++)
+      gParticles[i].sp.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x*PTM_RATIO/CC_CONTENT_SCALE_FACTOR(),
+                                      InterPriclScaleFactor*gParticles[i].mR.y *PTM_RATIO/CC_CONTENT_SCALE_FACTOR()  ) ;
+    
+//    for(int i=0; i<gNParticles; i++)
+ //       gParticles[i].sp.position = ccp(gParticles[i].mR.x * PTM_RATIO/CC_CONTENT_SCALE_FACTOR() ,
+  //                                      gParticles[i].mR.y* PTM_RATIO/CC_CONTENT_SCALE_FACTOR());
+    
+ //   glClear(GL_COLOR_BUFFER_BIT );
+  //  DrawContainer();
+  //  DrawWater();
+  //  DrawObjects();
+  //  DrawVoid();
+  //  glutSwapBuffers();
+}
+
+//==============================================================
+// Integrate
+//==============================================================
+-(void) Integrate
+{
+   // if (gInteractionMode == INTERACTION_FOUNTAIN)
+   //     DoFountain();
+    
+    [self CalculatePressureAndDensities];
+    [self CalculateForces];
+    [self CalculateNewParticles];
+    [self ImposeBoundaryConditions];
+    [self PreventParticleCohabitation];
+    gSpatialGrid->PopulateGrid(gParticles, gNParticles);
+    
+
+   // [self CalculateNormalField];
+
+    
+    // and the objects
+    //IntegrateObjects();
+}
+
+
+
 /*// 
  
   //==============================================================  |__________________________
@@ -1000,17 +1180,6 @@ float cube(float a)
  gBoundaryForceScale);                                              |
  }                                                                  |
  }                                                                  |_______________________________
- 
-
- 
- #ifdef CALC_NORMAL_FIELD
- 
- 
- 
- #endif
- 
- 
- 
  //========================================================----------------------------------------------------------
  // tResolver
  //========================================================
@@ -1180,77 +1349,8 @@ float cube(float a)
  fountainParticle = (fountainParticle + 1) % gNParticles;
  }
  
- //==============================================================
- // Integrate
- //==============================================================
- void Integrate()
- {
- if (gInteractionMode == INTERACTION_FOUNTAIN)
- DoFountain();
  
- CalculatePressureAndDensities();
- CalculateForces();
- CalculateNewParticles();
- ImposeBoundaryConditions();
- PreventParticleCohabitation();
- gSpatialGrid->PopulateGrid(gParticles, gNParticles);
- 
- #ifdef CALC_NORMAL_FIELD
- CalculateNormalField();
- #endif
- 
- // and the objects
- IntegrateObjects();
- }
- 
- //==============================================================
- // Initialise
- //==============================================================
- void Initialise()
- {
- NormaliseKernels();
- 
- gParticles = new tParticle[gNParticles];
- gSpatialGrid = new tSpatialGrid(
- tVector2(-gContainerWidth, -gContainerHeight),
- tVector2(gDomainX + gContainerWidth, gDomainY + gContainerHeight), gKernelH);
- 
- int i;
- for (i = 0 ; i < gNParticles ; ++i)
- {
- gParticles[i].mR.Set(
- gContainerX + RangedRandom(0.0f, gContainerWidth),
- gContainerY + RangedRandom(0.0f, gInitialFluidHeight));
- gParticles[i].mOldR = gParticles[i].mR;
- gParticles[i].mV.Set(0.0f, 0.0f);
- gParticles[i].mDensity = gDensity0;
- gParticles[i].mP = CalculatePressure(gDensity0);
- gParticles[i].mPressureForce.Set(0.0f, 0.0f);
- gParticles[i].mViscosityForce.Set(0.0f, 0.0f);
- gParticles[i].mBodyForce.Set(0.0f, 0.0f);
- #ifdef CALC_NORMAL_FIELD
- gParticles[i].mCs = 0.0f;
- gParticles[i].mN.Set(0.0f, 0.0f);
- #endif
- gParticles[i].mNext = 0;
- }
- 
- gSpatialGrid->PopulateGrid(gParticles, gNParticles);
- 
- if (gCreateObject)
- {
- tScalar widthFrac = 0.4f;
- tScalar heightFrac = 0.2f;
- gRectangle = new ::tRectangle(widthFrac * gContainerWidth,
- heightFrac * gContainerHeight,
- gObjectDensityFrac * gDensity0);
- gRectangle->SetCoGPosition(
- tVector2(gContainerX + 0.5f * gContainerWidth,
- gContainerY + gContainerHeight -
- heightFrac * gContainerHeight));
- gRectangle->SetParticleForces(gGravity);
- }
- }
+
 // ________________________________________________________________________________________________________________________________________
 // //==============================================================                                                                     |
 // // DrawContainer                                                                                                                     |
@@ -1392,65 +1492,6 @@ float cube(float a)
 // gRectangle->Draw();                                                                                                          |
 // }                                                                                                                            |
 // _______________________________________________________________________________________________________________________________
- //==============================================================
- // Display
- //==============================================================
- void Display()
- {
- static int lastTime = glutGet(GLUT_ELAPSED_TIME);
- int thisTime = glutGet(GLUT_ELAPSED_TIME);
- tScalar dt = (thisTime - lastTime) * 0.001f;
- dt *= gTimeScale;
- static tScalar residual = 0.0f;
- if (dt > 0.2f)
- {
- dt = 0.2f;
- residual = 0.0f;
- TRACE("can't keep up \n");
- }
- int nLoops = (int) ((dt + residual)/ gTimeStep);
- if (nLoops > 0)
- {
- residual = dt - (nLoops * gTimeStep);
- 
- for (int iLoop = 0 ; iLoop < nLoops ; ++iLoop)
- {
- Integrate();
- }
- lastTime = thisTime;
- }
- 
- // count FPS
- {
- static int lastTimeForFPS = thisTime;
- static int counter = 0;
- if (thisTime - lastTimeForFPS > 5000)
- {
- TRACE("FPS = %5.2f\n", counter / 5.0f);
- counter = 0;
- lastTimeForFPS = thisTime;
- }
- else
- {
- ++counter;
- }
- }
- 
- glClear(GL_COLOR_BUFFER_BIT );
- DrawContainer();
- DrawWater();
- DrawObjects();
- DrawVoid();
- glutSwapBuffers();
- }
- 
- //==============================================================
- // Idle
- //==============================================================
- void Idle()
- {
- Display();
- }
  
 // //========================================================____________________________________________________________________________________
 // // ApplyImpulse                                                                                                                              |
@@ -1550,88 +1591,7 @@ float cube(float a)
 // gOldMousePos = newPos;                                                                                                                   |
 // }____________________________________________________________________________________________________________________________________________
  
- //==============================================================
- // ReadConfig
- //==============================================================
- void ReadConfig()
- {
- #define GET(val) gConfigFile->GetValue(#val, val)
- Assert(gConfigFile);
  
- // defaults
- gWindowW = 640;
- gWindowH = 480;
- gRenderParticles = false;
- gNRenderSamplesX = 64;
- gNRenderSamplesY = 48;
- gRenderDensityMin = 500.0f;
- gRenderDensityMax = 800.0f;
- 
- gDomainX = 2.0f;
- 
- tScalar gContainerWidthFrac = 0.8f;
- tScalar gContainerHeightFrac = 0.5f;
- tScalar gInitialFluidHeightFrac = 0.9f;
- gGravity.Set(0.0f, -10.0f);
- gDensity0 = 1000.0f;
- gNParticles = 200;
- gViscosity = 0.05f;
- gGasK = 10.0f;
- gTimeStep = 1.0f / 100.0f;
- gTimeScale = 1.0f;
- tScalar kernelScale = 5.0f;
- gBoundaryForceScale = 0.0f;
- gBoundaryForceScaleDist = 0.1f;
- gCreateObject = true;
- gObjectDensityFrac = 0.5f;
- gObjectBoundaryScale = 20.0f;
- gObjectBuoyancyScale = 6.0f;
- 
- GET(gWindowW);
- GET(gWindowH);
- GET(gRenderParticles);
- GET(gNRenderSamplesX);
- GET(gNRenderSamplesY);
- GET(gRenderDensityMin);
- GET(gRenderDensityMax);
- GET(gDomainX);
- GET(gContainerWidthFrac);
- GET(gContainerHeightFrac);
- GET(gInitialFluidHeightFrac);
- gConfigFile->GetValue("gGravityX", gGravity.x);
- gConfigFile->GetValue("gGravityY", gGravity.y);
- GET(gDensity0);
- GET(gNParticles);
- GET(gViscosity);
- GET(gGasK);
- GET(gTimeStep);
- GET(gTimeScale);
- GET(kernelScale);
- GET(gBoundaryForceScale);
- GET(gBoundaryForceScaleDist);
- GET(gCreateObject);
- GET(gObjectDensityFrac);
- GET(gObjectBoundaryScale);
- GET(gObjectBuoyancyScale);
- 
- gDomainY = gDomainX * gWindowH / gWindowW;
- gContainerWidth = gContainerWidthFrac * gDomainX;
- gContainerHeight = gContainerHeightFrac * gDomainX;
- gContainerX = 0.5f * gDomainX - 0.5f * gContainerWidth;
- gContainerY = 0.1f * gDomainY;
- gInitialFluidHeight = gInitialFluidHeightFrac * gContainerHeight;
- gParticleRadius = Sqrt(gContainerWidth * gInitialFluidHeight /
- (4.0f * gNParticles));
- tScalar volume = gContainerWidth * gInitialFluidHeight;
- gParticleMass = volume * gDensity0 / gNParticles;
- 
- gKernelH = kernelScale * gParticleRadius;
- gKernelH9 = pow(gKernelH, 9.0f);
- gKernelH6 = pow(gKernelH, 6.0f);
- gKernelH4 = pow(gKernelH, 4.0f);
- gKernelH3 = pow(gKernelH, 3.0f);
- gKernelH2 = pow(gKernelH, 2.0f);
- }
  
  //==============================================================
  // main

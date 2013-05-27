@@ -728,6 +728,7 @@ public:
     tScalar        mCs;
                // the normal field (grad(mCs) so not normalised)
     tVector2       mN;
+    CCSprite *              sp;
 
 };
 
@@ -872,7 +873,7 @@ protected:
 {
 	std::string				mSceneName;
    QueWorldInteractions *intersectQueryCallback;
-
+    float                   InterPriclScaleFactor;
 	int						mNumPoints;
 	int						mTex[1];
 	GLuint					instancingShader;
@@ -883,7 +884,9 @@ protected:
     float                   mju;            //  вязкость
     float                   mro;            //  плотность
     float                   PressPerDensCoef;
-
+    float                   lastTime;
+    float                   thisTime;
+    
     int gWindowW;
     int gWindowH;
     
@@ -893,7 +896,7 @@ protected:
     int gNRenderSamplesY;
     tScalar gRenderDensityMin;
     tScalar gRenderDensityMax;
-    
+    tScalar gKernelScale;
     // x ranges from 0 to domainX
     tScalar gDomainX;
     // y ranges from 0 to domainY
@@ -906,6 +909,7 @@ protected:
     // position of the bottom left hand corner of the container.
     tScalar gContainerX;
     tScalar gContainerY;
+    
     
     // initial height of the fluid surface
     tScalar gInitialFluidHeight;
@@ -964,6 +968,7 @@ protected:
     cFluidHashList          hashGridList[hashWidth][hashHeight];
     int*                    InHashCellIndexes;
     tScalar                 SCALAR_TINY;
+    bool                    gCreateObject;
 }
 
 // Particle Utilities
