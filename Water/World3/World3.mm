@@ -3,31 +3,23 @@
 #import "Common.h"
 
 bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nearestPos, b2Vec2& impactNormal, float particleRadius);
-void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, sPart *liquid,float knorm,float ktang);
+void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, tParticle *liquid,float knorm, float ktang);
 //*
 
 bool QueWorldInteractions::ReportFixture(b2Fixture* fixture)
 {
     int numParticles = hashGridList[x][y].GetSize();
     hashGridList[x][y].ResetIterator();
-   
-    // Iterate through all the particles in this cell
     for(int i = 0; i < numParticles; i++)
     {
-        int particleIdx = hashGridList[x][y].GetNext();
-         
-        b2Vec2 particlePos = liquid[particleIdx].mPos;
+        int particleIdx = hashGridList[x][y].GetNext();         
+        b2Vec2 particlePos=b2Vec2(InterPriclScaleFactor * liquid[particleIdx].mR.x, InterPriclScaleFactor * liquid[particleIdx].mR.y);
+          
         if(fixture->GetBody()->GetType() == b2_staticBody)
         {
             b2Vec2 nearestPos(0,0);
             b2Vec2 normal(0,0);
-            
-            // electrodruid TODO: moving particles out to the nearest edge in this way
-            // can cause leaking and tunnelling, particularly for high-velocity particles.
-            // Perhaps some kind of approach involving raycasting between the old particle
-            // position and the current one would work better?
             bool inside = ParticleSolidCollision3(fixture, particlePos, nearestPos, normal, PartRadius);
-            
             if (inside)
             {
                 SeparateParticleFromBody3(particleIdx, nearestPos, normal, liquid, knorm, ktang);
@@ -38,64 +30,34 @@ bool QueWorldInteractions::ReportFixture(b2Fixture* fixture)
             b2Vec2 nearestPos(0,0);
             b2Vec2 normal(0,0);
             bool inside = ParticleSolidCollision3(fixture, particlePos, nearestPos, normal, PartRadius);
-            
             if (inside)
             {
-                b2Vec2 particleVelocity = liquid[particleIdx].mVel;
-                
+                b2Vec2 particleVelocity = b2Vec2(liquid[particleIdx].mV.x,liquid[particleIdx].mV.y);
                 particleVelocity *= deltaT;
-
-                
-                // electrodruid: Still not sure exactly what the paper meant by
-                // "intersection position", but taking the current particle position
-                // seems to give the least-bad results
-                b2Vec2 impulsePos = particlePos;
-                //									b2Vec2 impulsePos = nearestPos;
-                
+                b2Vec2 impulsePos = particlePos;                
                 b2Vec2 pointVelocity = fixture->GetBody()->GetLinearVelocityFromWorldPoint(impulsePos);
                 b2Vec2 pointVelocityAbsolute = pointVelocity;
-                // electrodruid: I think this does need to be here
-                pointVelocity *= deltaT;
-                
-                b2Vec2 relativeVelocity = particleVelocity - pointVelocity;
-                
+                pointVelocity *= deltaT;                
+                b2Vec2 relativeVelocity = particleVelocity - pointVelocity;                
                 b2Vec2 pointVelNormal = normal;
                 pointVelNormal *= b2Dot(relativeVelocity, normal);
                 b2Vec2 pointVelTangent = relativeVelocity - pointVelNormal;
-                
-                // Should be a value between 0.0f and 1.0f
-                const float slipFriction = 0.3f;
-                
+                const float slipFriction = 0.3f;                
                 pointVelTangent *= slipFriction;
                 b2Vec2 impulse = pointVelNormal - pointVelTangent;
-                
-                // electrodruid: not sure if this should be here
-                //									impulse *= deltaT;
-                
-                // electrodruid: Don't know if this should be a force or an impulse...
                 fixture->GetBody()->ApplyLinearImpulse(impulse, impulsePos);
-                //									 pShape->GetBody()->ApplyForce(impulse, impulsePos);
-                
-                // electrodruid: Bodies with low mass don't float, they just spin too
-                // fast because of low rotational inertia. As well as fudging for the
-                // spinning, try to add buoyancy by adding a force to negate (some of)
-                // the gravity affecting the body. This needs to be tuned properly
-                // for different bodies
                 b2Vec2 buoyancy = b2Vec2(0, 10.f);
                 const float buoyancyAdjuster = 0.f;
                 buoyancy *= buoyancyAdjuster;
-                
                 fixture->GetBody()->ApplyForce(buoyancy, fixture->GetBody()->GetPosition());
-                
-                // move the particles away from the body
-                liquid[particleIdx].mVel -= impulse;
-                liquid[particleIdx].mVel += pointVelocityAbsolute;
+                liquid[particleIdx].mV -= tVector2(impulse.x,impulse.y );
+                liquid[particleIdx].mV += tVector2(pointVelocityAbsolute.x,pointVelocityAbsolute.y);
             }
         }
     }
     return true;
 }
-//*/
+
 #define EPSILON			0.00001f			//for collision detection
 
 static float fluidMinX;
@@ -103,8 +65,6 @@ static float fluidMaxX;
 static float fluidMinY;
 static float fluidMaxY;
 
-
-// HelloWorldLayer implementation
 @implementation World3
 
 tSpatialGrid::tSpatialGrid(const tVector2 & domainMin,
@@ -112,19 +72,15 @@ tSpatialGrid::tSpatialGrid(const tVector2 & domainMin,
                            tScalar delta)
 {
     mDomainMin = domainMin;
-    mDomainMax = domainMax;
-    
+    mDomainMax = domainMax;    
     tVector2 range = domainMax - domainMin;
     int nx = (int) (range.x / delta);
     int ny = (int) (range.y / delta);
     assert(nx >= 1);
-    assert(ny >= 1);
-    
+    assert(ny >= 1);    
     mDelta.x = range.x / nx;
-    mDelta.y = range.y / ny;
-    
-    tSpatialGridEntry emptyEntry = {0};
-    
+    mDelta.y = range.y / ny;    
+    tSpatialGridEntry emptyEntry = {0};    
     mGridEntries.Resize(nx, ny);
     mGridEntries.SetTo(emptyEntry);
 }
@@ -147,8 +103,6 @@ void tSpatialGrid::PopulateGrid(tParticle * particles, int nParticles)
         tParticle & p = particles[iParticle];
         i = (int) ((p.mR.x - mDomainMin.x) / mDelta.x);
         j = (int) ((p.mR.y - mDomainMin.y) / mDelta.y);
-     //   Limit(i, 0, nx-1);
-     //   Limit(j, 0, ny-1);
         tSpatialGridEntry & grid = mGridEntries(i, j);
         
         if (0 == grid.mFirstParticle)
@@ -247,22 +201,16 @@ inline int hashY(float y)
 	{
 		// enable accelerometer
 		self.isAccelerometerEnabled = YES;
-       // mNumPoints = 200;
 		CGSize t=[Common size];
 		fluidMinX = MW(0);
 		fluidMaxX = MW(100);
 		fluidMinY = MH(0);
 		fluidMaxY = MH(100);
-        knorm = 0.6f;
-        ktang = 0.8f;
-        [self ReadConfig];
-        [self Initialise];
-        
-        
+        knorm = 0.4f;  // 0.6f
+        ktang = 0.5f;  //0.8f
+      //  [self ReadConfig];
+                  
 		[self schedule: @selector(tick:) interval:1.0f / 60.0f];
-       // gContainerX = 0;gContainerY=0;
-       // gContainerWidth  = (SIZE.width / 10) / PTM_RATIO;
-       // gContainerHeight = (SIZE.height / 10) / PTM_RATIO;
        // SCALAR_TINY = 1E-3;//??????????????????????????????????????????????????????????????
         lastTime=0;thisTime=0;
 	}
@@ -270,151 +218,6 @@ inline int hashY(float y)
 	return self;
 }
 
-
-//==============================================================
-// ReadConfig
-//==============================================================
--(void) ReadConfig
-{
-    
-    // defaults
-    gWindowW = 640;
-    gWindowH = 480;
-    gRenderParticles = false;
-    gNRenderSamplesX = 64;
-    gNRenderSamplesY = 48;
-    gRenderDensityMin = 500.0f;
-    gRenderDensityMax = 800.0f;
-    gDomainX = 2.0f;
-    tScalar gContainerWidthFrac = 0.8f;
-    tScalar gContainerHeightFrac = 0.5f;
-    tScalar gInitialFluidHeightFrac = 0.9f;
-    gGravity.Set(0.0f, -10.0f);
-    gDensity0 = 1000.0f;
-    gNParticles = 200;
-    gViscosity = 0.05f;
-    gGasK = 10.0f;
-    gTimeStep = 1.0f / 100.0f;
-    gTimeScale = 1.0f;
-    tScalar kernelScale = 5.0f;
-    gBoundaryForceScale = 0.0f;
-    gBoundaryForceScaleDist = 0.1f;
-    gCreateObject = true;
-    gObjectDensityFrac = 0.5f;
-    gObjectBoundaryScale = 20.0f;
-    gObjectBuoyancyScale = 6.0f;
-    //   ________________________________________________________________________________________________________________________________ 
-
-    gWindowW       =        640;
-    gWindowH       =        480;
-    gRenderParticles  =   false;
-    gNRenderSamplesX   =     96;
-    gNRenderSamplesY   =     64;
-    gRenderDensityMin  =    500;
-    gRenderDensityMax  =    800;
-    gDomainX           =      2.0;
-    gContainerWidthFrac    =  0.8;
-    gContainerHeightFrac   =  0.5;
-    gInitialFluidHeightFrac = 0.8;
-    gGravity.x         =       0.0;
-    gGravity.y         =     -10.0;
-    
-    gDensity0        =     1000.0;
-    gNParticles      =      400;
-    gViscosity       =        0.05;
-    gGasK            =       10.0;
-    gTimeStep       =         0.01;
-    gTimeScale       =        1.0;
-    gKernelScale      =       5.0;
-    gBoundaryForceScale   = 400.0;
-    gBoundaryForceScaleDist = 0.03;
-    gCreateObject       =  true;
-    gObjectDensityFrac   =    0.5;
-
-    gObjectBoundaryScale  =  20.0;
-
-    gObjectBuoyancyScale  =  12.0;
-    //________________________________________________________________________________________________________________________________
-    gDomainY = gDomainX * gWindowH / gWindowW;
-    gContainerWidth = gContainerWidthFrac * gDomainX;
-    gContainerHeight = gContainerHeightFrac * gDomainX;
-    gContainerX = 0.5f * gDomainX - 0.5f * gContainerWidth;
-    gContainerY = 0.1f * gDomainY;
-    gInitialFluidHeight = gInitialFluidHeightFrac * gContainerHeight;
-    gParticleRadius = sqrt(gContainerWidth * gInitialFluidHeight /
-                           (4.0f * gNParticles));
-    tScalar volume = gContainerWidth * gInitialFluidHeight;
-    gParticleMass = volume * gDensity0 / gNParticles;
-    
-    gKernelH = kernelScale * gParticleRadius;
-    gKernelH9 = pow(gKernelH, 9.0f);
-    gKernelH6 = pow(gKernelH, 6.0f);
-    gKernelH4 = pow(gKernelH, 4.0f);
-    gKernelH3 = pow(gKernelH, 3.0f);
-    gKernelH2 = pow(gKernelH, 2.0f);
-}
-
-//==============================================================
-// Initialise
-//==============================================================
--(void) Initialise
-{
-    [self NormaliseKernels];
-    
-    gParticles = new tParticle[gNParticles];
-    gSpatialGrid = new tSpatialGrid(
-                                    tVector2(-gContainerWidth, -gContainerHeight),
-                                    tVector2(gDomainX + gContainerWidth, gDomainY + gContainerHeight), gKernelH);
-    
-    InterPriclScaleFactor = 10.0f;
-    int i, k=(int) sqrt(gNParticles);
-    for (i = 0 ; i < gNParticles ; ++i)
-    {
-        
-        
-        gParticles[i].mR.Set(
-                             gContainerX + gContainerWidth  * (i / k ) / k  ,
-                             gContainerY + gInitialFluidHeight * (i % k) / k);
-        
-        float  Factor = CC_CONTENT_SCALE_FACTOR() / PTM_RATIO;
-        CCSprite *sprite = [CCSprite spriteWithFile:@"drop.png"]; // создать указатель на спрайт
-        tVector2 p = gParticles[i].mR;
-        
-        
-        
-        sprite.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x/Factor, InterPriclScaleFactor*gParticles[i].mR.y/Factor) ;
-       // [BATCH addChild:sprite];                                  // показать спрайт
-        
-        gParticles[i].mOldR = gParticles[i].mR;
-        gParticles[i].mV.Set(0.0f, 0.0f);
-        gParticles[i].mDensity = gDensity0;
-        gParticles[i].mP = [self CalculatePressure : gDensity0];
-        gParticles[i].mPressureForce.Set(0.0f, 0.0f);
-        gParticles[i].mViscosityForce.Set(0.0f, 0.0f);
-        gParticles[i].mBodyForce.Set(0.0f, 0.0f);
-        gParticles[i].mCs = 0.0f;
-        gParticles[i].mN.Set(0.0f, 0.0f);
-        gParticles[i].mNext = 0;
-        gParticles[i].sp=sprite;        
-    }
-//
-//    gSpatialGrid->PopulateGrid(gParticles, gNParticles);
-    
-//    if (gCreateObject)
-//    {
-//        tScalar widthFrac = 0.4f;
-//        tScalar heightFrac = 0.2f;
-//        gRectangle = new ::tRectangle(widthFrac * gContainerWidth,
-//                                      heightFrac * gContainerHeight,
-//                                      gObjectDensityFrac * gDensity0);
-//        gRectangle->SetCoGPosition(
-//                                   tVector2(gContainerX + 0.5f * gContainerWidth, 
-//                                            gContainerY + gContainerHeight - 
-//                                            heightFrac * gContainerHeight));
-//        gRectangle->SetParticleForces(gGravity);
-//    }
-    
-}
 
 ////==============================================================
 //// WPoly6
@@ -527,66 +330,88 @@ inline int hashY(float y)
 {
     
     CGSize size = [[CCDirector sharedDirector] winSize];
-    for (int i = 0 ; i < gNParticles ; ++i)
-    {
-       [BATCH addChild:gParticles[i].sp];
-    }
+   
+    tScalar gContainerWidthFrac = 1.;//0.8f;
+    tScalar gContainerHeightFrac = 1.2f;//0.5f;
+    tScalar gInitialFluidHeightFrac = 0.25f; //0.9f;
+    tScalar kernelScale = 5.0f;
+    gBoundaryForceScale = 0.0f;
+    gBoundaryForceScaleDist = 0.1f;
+    gWindowW       =  size.width ;  //   640;
+    gWindowH       =  size.height ;  //   480;
+    gRenderParticles  =   false;
+    gNRenderSamplesX   =     96;
+    gNRenderSamplesY   =     64;
+    gRenderDensityMin  =    500;
+    gRenderDensityMax  =    800;
+    gDomainX           =      2;
+    gDensity0        =     1000.0;
+    gNParticles      =      400;
+    gViscosity       =        0.2;  //  0.05
+    gGasK            =       10.0;
+    gTimeStep       =         0.01;
+    gTimeScale       =        1.0;
+    gBoundaryForceScale   = 400.0;
+    gBoundaryForceScaleDist = 0.03;
+    gCreateObject       =  true;
+    gObjectDensityFrac   =    0.5;
+    gObjectBoundaryScale  =  20.0;
+    gObjectBuoyancyScale  =  12.0;
+    gDomainY = gDomainX * gWindowH / gWindowW;
+    gContainerWidth = gContainerWidthFrac * gDomainX;
+    gContainerHeight = gContainerHeightFrac * gDomainX;
+    gContainerX = 0.5f * gDomainX - 0.5f * gContainerWidth;
+    gContainerY = 0.1f * gDomainY;
+    gInitialFluidHeight = gInitialFluidHeightFrac * gContainerHeight;
     
-//	void *tmp = liquid;
-//    intersectQueryCallback = NULL;
-//	
-//	liquid = (sPart *)calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
-//	InHashCellIndexes = (int *) calloc(sizeof(sPart), PARTICLES_COUNT + diff_);
-//	// recreate delegates
-////	if (liquid)
-////	{
-////		intersectQueryCallback = new QueWorldInteractions(hashGridList, liquid, knorm, ktang, ParticleRadius);
-////	}
-//	if (tmp)
-//	{
-//		memcpy(liquid, tmp, sizeof(sPart) * PARTICLES_COUNT);
-//		free(tmp);
-//	}
-    //mNumPoints = PARTICLES_COUNT + diff_;
-  /*
-    int Rowscount = (int) sqrt(mNumPoints),
-        Colcount = mNumPoints/ Rowscount+1;
-    float  Factor = CC_CONTENT_SCALE_FACTOR() / PTM_RATIO;
-	for(NSInteger i = 0; i < Rowscount; i++)//создать diff_ элементов
+    tScalar volume = 0.6f*gContainerWidth * gInitialFluidHeight;
+    gParticleRadius = sqrt(volume/(4.0f * gNParticles));
+    
+    gParticleMass = volume * gDensity0 / gNParticles;
+    gKernelH = kernelScale * gParticleRadius;
+    gKernelH9 = pow(gKernelH, 9.0f);
+    gKernelH6 = pow(gKernelH, 6.0f);
+    gKernelH4 = pow(gKernelH, 4.0f);
+    gKernelH3 = pow(gKernelH, 3.0f);
+    gKernelH2 = pow(gKernelH, 2.0f);
+    RIntoSpr_Factor = CC_CONTENT_SCALE_FACTOR() / PTM_RATIO;
+    [self NormaliseKernels];
+    gParticles = new tParticle[gNParticles];
+    gSpatialGrid = new tSpatialGrid(
+                                    tVector2(-gContainerWidth, -gContainerHeight),
+                                    tVector2(gDomainX + gContainerWidth, gDomainY + gContainerHeight), gKernelH);
+    
+    if (gParticles)
 	{
-     for(NSInteger j = 0; j < Colcount; j++)
-       {
-        if (i*Colcount+j<mNumPoints)
-        {
-         CGPoint p = ccp(    (int) size.width * 0.43f + 2*i * gParticleRadius/Factor,
-                        (int) size.height * 0.95f -  j * 2 * gParticleRadius/Factor);
-		 CCSprite *sprite = [CCSprite spriteWithFile:@"drop.png"]; // создать указатель на спрайт
-         [BATCH addChild:sprite];                                  // показать спрайт
-         sprite.position = p;                     // задать координаты спрайту
-         liquid[i*Colcount+j].sp = sprite;
-      
-         liquid[i*Colcount+j].mPos = b2Vec2(p.x * Factor, p.y * Factor);
-         liquid[i*Colcount+j].mOldPos = liquid[i*Colcount+j].mPos;
-         liquid[i*Colcount+j].mVel = b2Vec2(0, 0);
-         liquid[i*Colcount+j].mDensity = gDensity0;
-         liquid[i*Colcount+j].mPress = [self CalculatePressure : gDensity0];
-         liquid[i*Colcount+j].mPressureForce  = b2Vec2(0.0f, 0.0f);
-         liquid[i*Colcount+j].mViscosityForce = b2Vec2(0.0f, 0.0f);
-         liquid[i*Colcount+j].mBodyForce = b2Vec2(0.0f, 0.0f);
-            
-         liquid[i*Colcount+j].isVisible = YES;
-       //  liquid[i*Colcount+j].mMas  = (mDensity0+liquid[i*Colcount+j].mPress/PressPerDensCoef)*3.14159*ParticleRadius*ParticleRadius/4;
-          
-            
-
-//            gParticles[i].mPressureForce.Set(0.0f, 0.0f);
-//            gParticles[i].mViscosityForce.Set(0.0f, 0.0f);
-//            gParticles[i].mBodyForce.Set(0.0f, 0.0f);
-            
-        }
-       }
+		intersectQueryCallback = new QueWorldInteractions(hashGridList, gParticles,knorm,ktang,gParticleRadius);
+        //      eulerIntersectQueryCallback = new QueryWorldPostIntersect(hashGridList, liquid);
+	}
+    
+    //InterPriclScaleFactor = 12.0f;
+    int i, k=(int) sqrt(gNParticles);
+    for (i = 0 ; i < gNParticles ; ++i)
+    {
+        gParticles[i].mR.Set(
+                             gContainerX +  0.25f+0.6f * gContainerWidth  * (i / k ) / k  ,
+                             gContainerY + 2.0f + 0.5f *  gInitialFluidHeight * (i % k) / k);
         
-     }//*/
+        CCSprite *sprite = [CCSprite spriteWithFile:@"drop.png"]; // создать указатель на спрайт
+        sprite.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x/RIntoSpr_Factor, InterPriclScaleFactor*gParticles[i].mR.y/RIntoSpr_Factor) ;
+        gParticles[i].mOldR = gParticles[i].mR;
+        gParticles[i].mV.Set(0.0f, 0.0f);
+        gParticles[i].mDensity = gDensity0;
+        gParticles[i].mP = [self CalculatePressure : gDensity0];
+        gParticles[i].mPressureForce.Set(0.0f, 0.0f);
+        gParticles[i].mViscosityForce.Set(0.0f, 0.0f);
+        gParticles[i].mBodyForce.Set(0.0f, 0.0f);
+        gParticles[i].mCs = 0.0f;
+        gParticles[i].mN.Set(0.0f, 0.0f);
+        gParticles[i].mNext = 0;
+        gParticles[i].sp=sprite;
+        gParticles[i].sp.scaleX = 1.2f;
+        gParticles[i].sp.scaleY = 1.2f;
+        [BATCH addChild:gParticles[i].sp];
+    }
 }
 
 -(void)particlesCountDown:(NSInteger)diff_
@@ -637,126 +462,124 @@ inline int hashY(float y)
    return i;
 }
 
--(void) hashCreate
+
+-(void) spritevisibles
 {
-for(int a = 0; a < hashWidth; a++)
-	{
+    for(int a = 0; a < hashWidth; a++)
+    {
 		for(int b = 0; b < hashHeight; b++)
 		{
 			hashGridList[a][b].Clear();
-		}
-	}
-  for(int a = 0; a < mNumPoints; a++)
-	{
-        liquid[a].isVisible = YES;
-		int hcell = myMap(liquid[a].mPos.x, fluidMinX, fluidMaxX, 0, hashWidth-.001f);
-		int vcell = myMap(liquid[a].mPos.y, fluidMinY, fluidMaxY, 0, hashHeight-.001f);
+	 	}
+    }
+    for(int a = 0; a < gNParticles; a++)
+    {
+        gParticles[a].sp.visible=YES;
+        
+		int hcell = myMap(InterPriclScaleFactor * gParticles[a].mR.x, fluidMinX, fluidMaxX, 0, hashWidth-.001f);
+		int vcell = myMap(InterPriclScaleFactor * gParticles[a].mR.y, fluidMinY, fluidMaxY, 0, hashHeight-.001f);
         
 		if(hcell > -1 && hcell < hashWidth && vcell > -1 && vcell < hashHeight)
 		{
 			hashGridList[hcell][vcell].PushBack(a);
-            if (hcell>0)
-             {
-              if(vcell>0)
+		}
+    }
+    float porog = 1.0f;
+    for(int x = 0; x < hashWidth; x++)   // процедура определения необходимости отображения
+ 	{
+        for(int y = 0; y < hashHeight; y++)         // соответствующего спрайта
+		{
+            if(!hashGridList[x][y].IsEmpty())
+            {
+                int a, b;
+                hashGridList[x][y].ResetIterator();
+                for(int i=1;i<=4;i++) a = hashGridList[x][y].GetNext();
+                while (a>-1)
                 {
-                  hashGridList[hcell-1][vcell-1].PushBack(a);
+                    BOOL isXN = NO, isXV = NO, isYN = NO, isYV = NO;
+                    hashGridList[x][y].ResetIterator();
+                    while (b!=a)
+                    {
+                     b = hashGridList[x][y].GetNext();
+                     if (gParticles[a].sp.visible)
+                      {
+                        
+                        if (!isXN)
+                        {
+                            float dx = gParticles[a].mR.x-gParticles[b].mR.x ,
+                            dy = gParticles[a].mR.y-gParticles[b].mR.y;
+                            isXN = ((dx -  gParticleRadius) * (dx -  gParticleRadius ) + dy * dy < porog*porog* gParticleRadius *  gParticleRadius) &&
+                            (dx * dx + dy * dy <porog* porog* gParticleRadius *  gParticleRadius);
+                        }
+                        if (!isXV)
+                        {
+                            float dx = gParticles[a].mR.x-gParticles[b].mR.x ,
+                            dy = gParticles[a].mR.y-gParticles[b].mR.y;
+                            isXV = ((dx +  gParticleRadius) * (dx +    gParticleRadius ) + dy * dy <  porog *  porog *  gParticleRadius *  gParticleRadius) &&
+                            (dx * dx + dy * dy < porog*  porog * gParticleRadius *  gParticleRadius);
+                        }
+                        if (!isYN)
+                        {
+                            float dx = gParticles[a].mR.x-gParticles[b].mR.x ,
+                            dy = gParticles[a].mR.y-gParticles[b].mR.y;
+                            isYN = ((dy -    gParticleRadius) * (dy -   gParticleRadius ) + dx * dx <    porog *  porog * gParticleRadius *  gParticleRadius) &&
+                            (dx * dx + dy * dy < porog *  porog *  gParticleRadius *   gParticleRadius);
+                        }
+                        if (!isYV)
+                        {
+                            float dx = gParticles[a].mR.x-gParticles[b].mR.x ,
+                            dy = gParticles[a].mR.y-gParticles[b].mR.y;
+                            isYV = ((dy +    gParticleRadius) * (dy +    gParticleRadius ) + dy * dy <  porog *  porog *  gParticleRadius *  gParticleRadius) &&
+                            (dx * dx + dy * dy < porog* porog *  gParticleRadius *  gParticleRadius);
+                        }
+                      }
+                    }
+                    gParticles[a].sp.visible = !(isXN && isXV && isYN && isYV );
+                    
+                    
+                    a = hashGridList[x][y].GetNext();
                 }
-              hashGridList[hcell-1][vcell].PushBack(a);
-              if(vcell<hashHeight-1)
-                {
-                    hashGridList[hcell-1][vcell+1].PushBack(a);
-                }
-             if (hcell<hashWidth-1)
-               {
-                   if(vcell>0)
-                   {
-                       hashGridList[hcell+1][vcell-1].PushBack(a);
-                   }
-                   hashGridList[hcell+1][vcell].PushBack(a);
-                   if(vcell<hashHeight-1)
-                   {
-                       hashGridList[hcell+1][vcell+1].PushBack(a);
-                   }
-               }
-             }
-            if (vcell>0)
-             {
-               hashGridList[hcell][vcell-1].PushBack(a);
-               if (vcell<hashHeight-1)
-                 {
-                  hashGridList[hcell][vcell+1].PushBack(a);
-                 }
-             }
+            }
 		}
     }
 }
 
--(void) spritevisibles
-{
-//  float porog = 1.0f;
-//  for(int x = 0; x < hashWidth; x++)   // процедура определения необходимости отображения
-// 	{
-//        for(int y = 0; y < hashHeight; y++)         // соответствующего спрайта
-//		{
-//         if(!hashGridList[x][y].IsEmpty())
-//           {
-//               int a, b;
-//               hashGridList[x][y].ResetIterator();
-//               for(int i=1;i<=4;i++) a = hashGridList[x][y].GetNext();
-//               while (a>-1)
-//                 {
-//                    bool isXN=false, isXV=false, isYN=false, isYV=false;
-//                    hashGridList[x][y].ResetIterator();
-//                    while (b!=a)
-//                     {
-//                        b = hashGridList[x][y].GetNext();
-//                        if (!isXN)
-//                          {
-//                              float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
-//                                    dy = liquid[a].mPos.y-liquid[b].mPos.y;
-//                              isXN = ((dx -  ParticleRadius) * (dx -  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
-//                                   (dx * dx + dy * dy <porog*  ParticleRadius *  ParticleRadius);
-//                          }
-//                        if (!isXV)
-//                         {
-//                             float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
-//                                   dy = liquid[a].mPos.y-liquid[b].mPos.y;
-//                             isXV = ((dx +  ParticleRadius) * (dx +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
-//                                    (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
-//                         }
-//                         if (!isYN)
-//                         {
-//                             float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
-//                                   dy = liquid[a].mPos.y-liquid[b].mPos.y;
-//                             isYN = ((dy -  ParticleRadius) * (dy -  ParticleRadius ) + dx * dx <   ParticleRadius *  ParticleRadius) &&
-//                                   (dx * dx + dy * dy < porog *  ParticleRadius *   ParticleRadius);
-//                         }
-//                         if (!isYV)
-//                         {
-//                             float dx = liquid[a].mPos.x-liquid[b].mPos.x ,
-//                                   dy = liquid[a].mPos.y-liquid[b].mPos.y;
-//                             isYV = ((dy +  ParticleRadius) * (dy +  ParticleRadius ) + dy * dy <  ParticleRadius *  ParticleRadius) &&
-//                                   (dx * dx + dy * dy < porog* ParticleRadius *  ParticleRadius);
-//                         }
-//                     }
-//                     liquid[a].isVisible=!(isXN && isXV && isYN && isYV);
-//                     a = hashGridList[x][y].GetNext();
-//                 }
-//           }
-//		}
-//    }
-
-}
-
 -(void) bodytouchtest :(float) deltaT
 {
-
+    for (int x = 0; x < hashWidth; ++x)
+	{
+		for (int y = 0; y < hashHeight; ++y)
+		{
+			if(!hashGridList[x][y].IsEmpty())
+			{
+				float minX = myMap((float)x, 0, hashWidth, fluidMinX, fluidMaxX);
+				float maxX = myMap((float)x+1, 0, hashWidth, fluidMinX, fluidMaxX);
+				float minY = myMap((float)y, 0, hashHeight, fluidMinY, fluidMaxY);
+				float maxY = myMap((float)y+1, 0, hashHeight, fluidMinY, fluidMaxY);
+                
+				b2AABB aabb;
+                
+				aabb.lowerBound.Set(minX, minY);
+				aabb.upperBound.Set(maxX, maxY);
+                
+				if (intersectQueryCallback)
+				{
+					intersectQueryCallback->x = x;
+					intersectQueryCallback->y = y;
+					intersectQueryCallback->deltaT = deltaT;
+					WORLD->QueryAABB(intersectQueryCallback, aabb);
+				}
+			}
+		}
+	}
 }
 
 
 -(void) tick: (ccTime) dt
 {
-    [self Display :  dt];
+    b2Vec2 gw=WORLD->GetGravity();
+    gGravity =tVector2( gw.x,gw.y);
+    [self Display :  1.f/60];
 }
 
 - (void)accelerometer:(UIAccelerometer*)accelerometer didAccelerate:(UIAcceleration*)acceleration
@@ -824,18 +647,20 @@ bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& ne
 	}
 }
 
-
 -(void)Setup:(bool)bStart;
 {
 	//mNumPoints = 0;
 }
 
-void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, sPart *liquid,float knorm, float ktang)
+void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, tParticle *liquid,float knorm, float ktang)
 {
-	liquid[particleIdx].mPos = nearestPos;
-    b2Vec2 V = liquid[particleIdx].mVel;
-    b2Vec2 Vn = - b2Dot(V, normal) * normal  ;
-  	liquid[particleIdx].mVel += (1 + knorm) * Vn  + 2 * (ktang - 1) * (Vn + V);
+	liquid[particleIdx].mR = tVector2(nearestPos.x,nearestPos.y)/InterPriclScaleFactor;
+    tVector2 V = liquid[particleIdx].mV;
+    float VNModule = V.x * normal.x + V.y * normal.y;
+    tVector2 Vn;
+    Vn.x = VNModule * normal.x;
+    Vn.y = VNModule * normal.y;
+  	liquid[particleIdx].mV += (1 + knorm) * Vn  + 2 * (ktang - 1) * (Vn + V);
 }
 
 -(void)Exit
@@ -849,9 +674,6 @@ float cube(float a)
 {
     return a*a*a;
 }
-
-//*
-
 //==============================================================
 // CalculatePressure
 //==============================================================
@@ -879,8 +701,7 @@ float cube(float a)
  (gTimeStep * gTimeStep / gParticleMass) * force;
  gParticles[i].mOldR = tmp;
  // cache velocity as it's useful
- gParticles[i].mV =
- (gParticles[i].mR - gParticles[i].mOldR) / gTimeStep;
+ gParticles[i].mV = (gParticles[i].mR - gParticles[i].mOldR) / gTimeStep;
  }
  }
 //==============================================================
@@ -1108,7 +929,8 @@ float cube(float a)
         }
         lastTime = thisTime;
     }
-    
+    [self spritevisibles];
+    [self bodytouchtest : dt];
     for (int i=0;i<gNParticles;i++)
       gParticles[i].sp.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x*PTM_RATIO/CC_CONTENT_SCALE_FACTOR(),
                                       InterPriclScaleFactor*gParticles[i].mR.y *PTM_RATIO/CC_CONTENT_SCALE_FACTOR()  ) ;

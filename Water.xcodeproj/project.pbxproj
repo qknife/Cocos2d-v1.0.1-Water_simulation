@@ -1348,7 +1348,7 @@
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_IDENTITY = "iPhone Developer: Anton Fedoruk (X629J742FG)";
 				"CODE_SIGN_IDENTITY[sdk=*]" = "iPhone Developer: Anton Fedoruk (X629J742FG)";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer: Anton Fedoruk (X629J742FG)";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1362,6 +1362,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
 				PROVISIONING_PROFILE = "D19E7D9A-89C5-498B-A026-2A149FC878BC";
 				"PROVISIONING_PROFILE[sdk=*]" = "D19E7D9A-89C5-498B-A026-2A149FC878BC";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "D19E7D9A-89C5-498B-A026-2A149FC878BC";
 				SDKROOT = iphoneos;
 			};
 			name = Debug;

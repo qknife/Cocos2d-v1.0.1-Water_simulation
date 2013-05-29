@@ -77,39 +77,41 @@
 
 
 // Vector params
-#define PVOLMIN				0
-#define PVOLMAX				1
-#define PBOUNDMIN			2
-#define PBOUNDMAX			3
-#define PINITMIN			4
-#define PINITMAX			5
-#define PEMIT_POS			6
-#define PEMIT_ANG			7
-#define PEMIT_DANG			8
-#define PEMIT_SPREAD		9
-#define PEMIT_RATE			10
-#define PPOINT_GRAV_POS		11
-#define PPLANE_GRAV_DIR		12
+#define PVOLMIN				  0
+#define PVOLMAX				  1
+#define PBOUNDMIN			  2
+#define PBOUNDMAX			  3
+#define PINITMIN			  4
+#define PINITMAX			  5
+#define PEMIT_POS			  6
+#define PEMIT_ANG			  7
+#define PEMIT_DANG			  8
+#define PEMIT_SPREAD		  9
+#define PEMIT_RATE			  10
+#define PPOINT_GRAV_POS		  11
+#define PPLANE_GRAV_DIR		  12
 
 // Booleans
-#define PRUN				0
-#define PDEBUG				1
-#define PUSE_CUDA			2
-#define	PUSE_GRID			3
-#define PWRAP_X				4
-#define PWALL_BARRIER		5
-#define PLEVY_BARRIER		6
-#define PDRAIN_BARRIER		7
-#define PPLANE_GRAV_ON		11
-#define PPROFILE			12
-#define PCAPTURE			13
+#define PRUN				   0
+#define PDEBUG				   1
+#define PUSE_CUDA			   2
+#define	PUSE_GRID			   3
+#define PWRAP_X				   4
+#define PWALL_BARRIER		   5
+#define PLEVY_BARRIER		   6
+#define PDRAIN_BARRIER		   7
+#define PPLANE_GRAV_ON		   11
+#define PPROFILE			   12
+#define PCAPTURE			   13
 
-#define BFLUID				2
+#define BFLUID	  			   2
 #define DWORD int
 
-#define hashWidth	   	    (30)
-#define hashHeight		    (30)
-#define eps                 0.001
+#define InterPriclScaleFactor  12
+
+#define hashWidth	   	      (30)
+#define hashHeight		      (30)
+#define eps                   0.001
 
 //typedef  b2Vec2 tVector2 ;
 typedef float tScalar;
@@ -140,7 +142,8 @@ public:
     /// allows resizing. Data will be lost if resizing occurred
     void Resize(unsigned nx, unsigned ny) {
         if (nx == mNx && ny == mNy) return;
-        delete [] mData; mData = new T[nx*ny]; mNx = nx; mNy = ny;}
+        //delete [] mData;
+        mData = new T[nx*ny]; mNx = nx; mNy = ny;}
     
     /// enables/disables wrapping
     void SetWrap(bool wrap) {mWrap = wrap;}
@@ -822,29 +825,11 @@ inline tParticle * tSpatialGridIterator::GetNext(const tSpatialGrid & grid)
 }
 
 
-struct sPart
-{
-    CCSprite *              sp;
-    b2Vec2				    mPos;           //
-    b2Vec2				    mOldPos;        //
-    float                   mDensity;       //
-    float                   mPress;         //  давление
-    b2Vec2				    mVel;           //  скорость
-    b2Vec2                  mPressureForce; //
-    b2Vec2                  mViscosityForce;//
-    b2Vec2                  mN;
-    b2Vec2                  mBodyForce;
-    float                   mMas;
-    
-    BOOL                    isVisible;  //  признак отображения
-    
-};
-
 
 class QueWorldInteractions : public b2QueryCallback
 {
 public:
-    QueWorldInteractions(cFluidHashList (*grid)[hashHeight], sPart *particles,float _knorm, float _ktang,float particleradius)
+    QueWorldInteractions(cFluidHashList (*grid)[hashHeight], tParticle *particles,float _knorm, float _ktang,float particleradius)
 	{
         hashGridList = grid;
         liquid = particles;
@@ -859,7 +844,7 @@ public:
     
 protected:
     cFluidHashList (*hashGridList)[hashHeight];
-    sPart                   *liquid;
+    tParticle               *liquid;
     float                   knorm;          //  нормальный коэффициент восстановления
     float                   ktang;          //  тангенциальный коэффициент восстановления
     float                   mju;            //  вязкость
@@ -872,13 +857,10 @@ protected:
 @interface World3 : CCLayer <WorldSceneProtocol>
 {
 	std::string				mSceneName;
-   QueWorldInteractions *intersectQueryCallback;
-    float                   InterPriclScaleFactor;
-	int						mNumPoints;
+   QueWorldInteractions *intersectQueryCallback;    
 	int						mTex[1];
 	GLuint					instancingShader;
     float                   SmoothRad;
-    sPart*                  liquid;
     float                   knorm;          //  нормальный коэффициент восстановления
     float                   ktang;          //  тангенциальный коэффициент восстановления
     float                   mju;            //  вязкость
@@ -886,7 +868,7 @@ protected:
     float                   PressPerDensCoef;
     float                   lastTime;
     float                   thisTime;
-    
+    float                   RIntoSpr_Factor;
     int gWindowW;
     int gWindowH;
     
