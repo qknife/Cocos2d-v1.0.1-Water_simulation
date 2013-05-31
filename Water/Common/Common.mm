@@ -225,15 +225,15 @@ static CGSize size;
 		obstacles->CreateFixture(&gFix);
 	}
 
-	b2CircleShape cd;
-	gFix.shape = &cd;
-    cd.m_radius = UNIT;
-    cd.m_p = b2Vec2(MW(37),MH(30));
-    obstacles->CreateFixture(&gFix);
-	cd.m_p = b2Vec2(MW(41),MH(33));
-    obstacles->CreateFixture(&gFix);
-	cd.m_p = b2Vec2(MW(46),MH(30));
-    obstacles->CreateFixture(&gFix);
+//	b2CircleShape cd;
+//	gFix.shape = &cd;
+//    cd.m_radius = 2.f * UNIT;
+//    cd.m_p = b2Vec2(MW(37),MH(30));
+//    obstacles->CreateFixture(&gFix);
+//	cd.m_p = b2Vec2(MW(41),MH(33));
+//    obstacles->CreateFixture(&gFix);
+//	cd.m_p = b2Vec2(MW(46),MH(30));
+//    obstacles->CreateFixture(&gFix);
 
 }
 
