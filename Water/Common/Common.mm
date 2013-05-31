@@ -254,7 +254,7 @@ static CGSize size;
 	
 	// set sprites
 	particlesCount = 0;
-	[self setParticlesCount:200];//125
+	[self setParticlesCount:500];//125
 }
 
 +(void)cleanScene

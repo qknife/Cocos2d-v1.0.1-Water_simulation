@@ -17,6 +17,7 @@
 
 #define hashWidth		(40)
 #define hashHeight		(40)
+#define eps             0.001
 
 const int nominalNeighbourListLength = 256;
 
@@ -26,7 +27,8 @@ struct sParticle
     mForce(0,0), mMass(1.0f), mRestitution(1.0f), mFriction(0.0f) {}
 	~sParticle() {}
     
-	b2Vec2 mPosition;
+	b2Vec2 mPositionOld;
+    b2Vec2 mPosition;
 	b2Vec2 mVelocity;
 	b2Vec2 mForce;
     CCSprite *sp;
@@ -35,6 +37,7 @@ struct sParticle
 	float mMass;
 	float mRestitution;
 	float mFriction;
+    BOOL isCohabyChecked;
 };
 
 class QueryWorldInteractions : public b2QueryCallback

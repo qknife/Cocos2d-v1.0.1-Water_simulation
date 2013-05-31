@@ -161,7 +161,7 @@ inline int hashY(float y)
         
         rad = 0.6f;
         visc = 0.002f;
-        idealRad = 50.0f;
+        idealRad = 50.f;
         totalMass = 30.f;
 		
         boxWidth = 1.f;
@@ -174,7 +174,7 @@ inline int hashY(float y)
 		fluidMinY = MH(0);
 		fluidMaxY = MH(100);
         
-        [self schedule:@selector(update:) interval:1.0f/30.0f];
+        [self schedule:@selector(update:) interval:1.0f/60.0f];
     }
 	
     return self;
@@ -221,23 +221,20 @@ inline int hashY(float y)
 	for(NSInteger i = PARTICLES_COUNT; i < PARTICLES_COUNT + diff_; i++)
 	{
 		CGPoint p = ccp(
-                        (int)size.width / 100 * (24 + 3*sin(6.28f*i/(PARTICLES_COUNT + diff_)) ),
-                        // (int)size.width / 100 * 23 + random()%(int)size.width / 20,
-                        (int)size.height / 100 * (90 - 10*cos(6.28f*i/(PARTICLES_COUNT + diff_)) )
-                        //   size.height-(random()%(int)size.height / 5)
-                        
-                        
+                       // (int)size.width / 100 * (24 + 3*sin(6.28f*i/(PARTICLES_COUNT + diff_)) ),
+                         (int)size.width / 100 * 30 + random()%(int)size.width / 16,
+                      //  (int)size.height / 100 * (90 - 10*cos(6.28f*i/(PARTICLES_COUNT + diff_)) )
+                           size.height-(random()%(int)size.height / 5)                        
                         );;
 		
 		liquid[i].mPosition = b2Vec2(p.x * CC_CONTENT_SCALE_FACTOR() / PTM_RATIO, p.y * CC_CONTENT_SCALE_FACTOR() / PTM_RATIO);
+        liquid[i].mPositionOld = liquid[i].mPosition;
 		liquid[i].mVelocity = b2Vec2(0.0f, 0.0f);
 		liquid[i].mMass = massPerParticle;
-		liquid[i].mRestitution = 0.4f;
+		liquid[i].mRestitution = 0.1f;
 		liquid[i].mFriction = 0.0f;
-		
 		CCSprite *sp = [CCSprite spriteWithFile:@"drop.png"];
-		[BATCH addChild:sp];
-		
+		[BATCH addChild:sp];		
 		liquid[i].sp = sp;
 		liquid[i].sp.position = ccp(p.x, p.y);
 	}
@@ -266,58 +263,197 @@ inline int hashY(float y)
 	if (SCENE != (CCScene<WorldSceneProtocol> *)self)
 	{
 		return;
-	}
-    
+	}    
 	// Update positions, and hash them
-    for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)
-	{
-        b2Vec2 g = WORLD->GetGravity();
-		
+    for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)    //          PREVIOUS POSITION
+	 {
+        b2Vec2 g = WORLD->GetGravity();		
         liquid[i].mVelocity.x += g.x * dt;
 		liquid[i].mVelocity.y += g.y * dt;
 		liquid[i].mPosition.x += liquid[i].mVelocity.x * dt;
 		liquid[i].mPosition.y += liquid[i].mVelocity.y * dt;
-	}
-	
-	[self checkBounds];
-	
-	for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)
-	{
+        liquid[i].isCohabyChecked = NO;
+	 }
+	for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)  //                            CHECK!!!
+	 {
+        if (liquid[i].mPosition.y < (SIZE.height / 10) / PTM_RATIO)
+		{
+			liquid[i].mPosition = b2Vec2(liquid[i].mPosition.x, (SIZE.height / 10) / PTM_RATIO);
+			liquid[i].mVelocity.y = 0;
+		}
+		else if (liquid[i].mPosition.y > SIZE.height / PTM_RATIO)
+		{
+			liquid[i].mPosition = b2Vec2(liquid[i].mPosition.x, SIZE.height / PTM_RATIO);
+			liquid[i].mVelocity.y = 0;
+		}
+		
+		if (liquid[i].mPosition.x < 0)
+		{
+			liquid[i].mPosition = b2Vec2(0, liquid[i].mPosition.y);
+			liquid[i].mVelocity.x = 0;
+		}
+		else if (liquid[i].mPosition.x > SIZE.width / PTM_RATIO)
+		{
+			liquid[i].mPosition = b2Vec2(SIZE.width / PTM_RATIO, liquid[i].mPosition.y);
+			liquid[i].mVelocity.x = 0;
+		}
 		liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPosition.x / CC_CONTENT_SCALE_FACTOR(), PTM_RATIO * liquid[i].mPosition.y / CC_CONTENT_SCALE_FACTOR());
-	}
-    [self hashLocations];
-    [self applyLiquidConstraint:dt];
-    [self processWorldInteractions:dt];// реакция на барьеры
-    //   [self dampenLiquid];
-	//[self resolveIntersections:dt];
-}
-
--(void)clearHashGrid
-{
-	for(int a = 0; a < hashWidth; a++)
+	 }
+    for(int a = 0; a < hashWidth; a++)       //                           HASH !!!
 	{
 		for(int b = 0; b < hashHeight; b++)
 		{
 			hashGridList[a][b].Clear();
 		}
-	}
-}
-
--(void)hashLocations
-{
-	[self clearHashGrid];
-    
-	for(int a = 0; a < PARTICLES_COUNT; a++)
+	}	for(int a = 0; a < PARTICLES_COUNT; a++)
 	{
 		int hcell = hashX(liquid[a].mPosition.x);
-		int vcell = hashY(liquid[a].mPosition.y);
-        
+		int vcell = hashY(liquid[a].mPosition.y);        
 		if(hcell > -1 && hcell < hashWidth && vcell > -1 && vcell < hashHeight)
 		{
 			hashGridList[hcell][vcell].PushBack(a);
 		}
 	}
+    /*
+    for (int x = 0; x < hashWidth; ++x)  //              PREVENT COHABITATION  !
+	{
+		for (int y = 0; y < hashHeight; ++y)
+		{
+			if(!hashGridList[x][y].IsEmpty())
+			{
+				int a, b;
+                hashGridList[x][y].ResetIterator();
+                a = hashGridList[x][y].GetNext();
+                while (a != -1)
+                {
+                    b = hashGridList[x][y].GetNext();
+                    while ( b!=-1)
+                    {
+                       
+                        b = hashGridList[x][y].GetNext();
+                    }
+                    
+                    hashGridList[x][y].ResetIterator();
+                    b =-1;
+                    while (b!=a)
+                    {
+                        b = hashGridList[x][y].GetNext();
+                    }
+                    
+                    a = hashGridList[x][y].GetNext();
+                }
+			}
+		}
+	}
+    
+    //*/
+    
+    
+    //*
+    float t1; 
+    for (int x = 0; x < hashWidth; ++x)  //              PREVENT COHABITATION  !
+	{
+		for (int y = 0; y < hashHeight; ++y)
+		{
+			if(!hashGridList[x][y].IsEmpty())
+			{
+				int a, b;
+                hashGridList[x][y].ResetIterator();
+                a = hashGridList[x][y].GetNext();
+                while (a != -1)
+                {
+                   b = hashGridList[x][y].GetNext();
+                   while ( b!=-1)
+                   {
+                       float xi1, xj1, xi2, xj2, yi1, yj1, yi2, yj2;
+                       xi1 = liquid[a].mPositionOld.x;
+                       xj1 = liquid[b].mPositionOld.x;
+                       xi2 = liquid[a].mPosition.x;
+                       xj2 = liquid[b].mPosition.x;
+                       yi1 = liquid[a].mPositionOld.y;
+                       yj1 = liquid[b].mPositionOld.y;
+                       yi2 = liquid[a].mPosition.y;
+                       yj2 = liquid[b].mPosition.y;                     
+                       float A =(xj1-xi1)*(xj1-xi1)+(yj1-yi1)*(yj1-yi1),
+                             B =(xj1-xi1)*(xj2-xi2-xj1+xi1)+(yj1-yi1)*(yj2-yi2-yj1+yi1),
+                             C =(xj2-xi2-xj1+xi1)*(xj2-xi2-xj1+xi1)+(yj2-yi2-yj1+yi1)*(yj2-yi2-yj1+yi1);
+                       float dx=liquid[a].mPosition.x-liquid[b].mPosition.x,
+                                                           dy =liquid[a].mPosition.y-liquid[b].mPosition.y,
+                                                           ds = sqrt((dx*dx+dy*dy)), ds1;
+                       if (C>eps )
+                        {
+                         if (A<4*rad*rad)
+                           {
+                            if (A+2*B+C<4*rad*rad)
+                            {
+                              if (2*B+C<0)
+                              {
+                                 if (!liquid[a].isCohabyChecked)
+                                 {
+                               //      liquid[a].mPosition = liquid[a].mPositionOld;
+                                     liquid[a].isCohabyChecked = YES;
+                                 }
+                                 if (!liquid[b].isCohabyChecked)
+                                 {
+                                  //   liquid[b].mPosition = liquid[b].mPositionOld;
+                                     liquid[b].isCohabyChecked = YES;
+                                 }
+                              }
+                            }                       
+                           }
+                         else
+                          {
+                             if ((A + 2 * B + C < 4 * rad * rad) || (A - B * B / C < 4 * rad * rad))
+                             {
+                                 t1 = -B/C-sqrt(B*B+C*(4*rad*rad-A))/C;
+                                 b2Vec2 avgvel = 0.5f * (liquid[a].mVelocity + liquid[b].mVelocity);
+                                 if (!liquid[a].isCohabyChecked)
+                                 {
+                                     liquid[a].mPosition = (1-t1) * liquid[a].mPositionOld + t1 * liquid[a].mPosition;
+                                     liquid[a].isCohabyChecked=YES;
+                                  //   liquid[a].mVelocity = avgvel;
+                                 }
+                                 if (!liquid[b].isCohabyChecked)
+                                 {
+                                     liquid[b].mPosition = (1-t1) * liquid[b].mPositionOld + t1 * liquid[b].mPosition;
+                                     liquid[b].isCohabyChecked = YES;
+                                    // liquid[b].mVelocity = avgvel;
+                                 }
+                             }                             
+                          }
+                        }                       
+                       b = hashGridList[x][y].GetNext();
+                   }                
+                   hashGridList[x][y].ResetIterator();
+                    b =-1;
+                   while (b!=a)
+                     {
+                       b = hashGridList[x][y].GetNext();
+                     }
+                    
+                   a = hashGridList[x][y].GetNext();
+                }
+			}
+		}
+	}
+    //*/
+    /*
+    for (int a = 0;a< PARTICLES_COUNT; a++)
+      {
+        liquid[a].mVelocity = (1.f/dt) * (liquid[a].mPosition - liquid[a].mPositionOld  );
+      }//*/
+    [self applyLiquidConstraint:dt];        //                NEW VELOCITY -  SPH
+    [self processWorldInteractions:dt];// реакция на барьеры
+    //   [self dampenLiquid];
+
+    for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)
+    {
+        liquid[i].mPositionOld  =  liquid[i].mPosition;
+    
+    }
+    //[self resolveIntersections:dt];
 }
+
 
 // Fix up the tail pointers for the hashGrid cells after we've monkeyed with them to
 // make the neighbours list for a particle
@@ -479,7 +615,6 @@ inline int hashY(float y)
 					factor = visc * oneminusq * deltaT;
 					dx -= relvx * factor;
 					dy -= relvy * factor;
-                    
 					xchange[j] += dx;
 					ychange[j] += dy;
 					changex -= dx;
@@ -505,33 +640,6 @@ inline int hashY(float y)
 	}
 }
 
--(void)checkBounds
-{
-	for (int i = 0; i < PARTICLES_COUNT; ++i)
-	{
-		if (liquid[i].mPosition.y < (SIZE.height / 10) / PTM_RATIO)
-		{
-			liquid[i].mPosition = b2Vec2(liquid[i].mPosition.x, (SIZE.height / 10) / PTM_RATIO);
-			liquid[i].mVelocity.y = 0;
-		}
-		else if (liquid[i].mPosition.y > SIZE.height / PTM_RATIO)
-		{
-			liquid[i].mPosition = b2Vec2(liquid[i].mPosition.x, SIZE.height / PTM_RATIO);
-			liquid[i].mVelocity.y = 0;
-		}
-		
-		if (liquid[i].mPosition.x < 0)
-		{
-			liquid[i].mPosition = b2Vec2(0, liquid[i].mPosition.y);
-			liquid[i].mVelocity.x = 0;
-		}
-		else if (liquid[i].mPosition.x > SIZE.width / PTM_RATIO)
-		{
-			liquid[i].mPosition = b2Vec2(SIZE.width / PTM_RATIO, liquid[i].mPosition.y);
-			liquid[i].mVelocity.x = 0;
-		}
-	}
-}
 
 -(void)dampenLiquid
 {
@@ -580,8 +688,7 @@ inline int hashY(float y)
 
 bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nearestPos, b2Vec2& impactNormal)
 {
-    const float particleRadius = 1.2f;
-    
+    const float particleRadius = 1.2f;    
 	if (fixture->GetShape()->GetType() == b2Shape::e_circle)
 	{
 		b2CircleShape* pCircleShape = static_cast<b2CircleShape*>(fixture->GetShape());
@@ -592,56 +699,44 @@ bool ParticleSolidCollision(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nea
 		if (delta.LengthSquared() > radius * radius)
 		{
 			return false;
-		}
-        
+		}        
 		delta.Normalize();
 		delta *= radius;
 		nearestPos = delta + pCircleShape->m_p;
 		impactNormal = (nearestPos - circlePos);
-		impactNormal.Normalize();
-        
-		return true;
-		
+		impactNormal.Normalize();        
+		return true;		
 	}
 	else if (fixture->GetShape()->GetType() == b2Shape::e_polygon)
 	{
 		b2PolygonShape* pPolyShape = static_cast<b2PolygonShape*>(fixture->GetShape());
 		const b2Transform& xf = fixture->GetBody()->GetTransform();
-		int numVerts = pPolyShape->GetVertexCount();
-        
+		int numVerts = pPolyShape->GetVertexCount();        
 		b2Vec2 vertices[b2_maxPolygonVertices];
-		b2Vec2 normals[b2_maxPolygonVertices];
-        
+		b2Vec2 normals[b2_maxPolygonVertices];        
 		for (int32 i = 0; i < numVerts; ++i)
 		{
 			vertices[i] = b2Mul(xf, pPolyShape->m_vertices[i]);
 			normals[i] = b2Mul(xf.q, pPolyShape->m_normals[i]);
-		}
-        
-		float shortestDistance = 99999.0f;
-        
+		}        
+		float shortestDistance = 99999.0f;        
 		for (int i = 0; i < numVerts ; ++i)
 		{
             b2Vec2 vertex = vertices[i] + 0.4f * normals[i] - particlePos;
-			float distance = b2Dot(normals[i], vertex);
-            
+			float distance = b2Dot(normals[i], vertex);            
 			if (distance < 0)
 			{
 				return false;
-			}
-            
+			}            
 			if (distance < shortestDistance)
 			{
-				shortestDistance = distance;
-				
+				shortestDistance = distance;				
 				nearestPos = b2Vec2(
                                     normals[i].x * distance + particlePos.x,
-                                    normals[i].y * distance + particlePos.y);
-                
+                                    normals[i].y * distance + particlePos.y);                
 				impactNormal = normals[i];
 			}
-		}
-        
+		}        
 		return true;
 	}
 	else
@@ -683,27 +778,10 @@ void SeparateParticleFromBody(int particleIdx, b2Vec2& nearestPos, b2Vec2& norma
     
 	liquid[particleIdx].mVelocity = V;
 #endif
+
 }
 
--(void)stepFluidParticles:(float)deltaT
-{
-	for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)
-	{
-        b2Vec2 g = WORLD->GetGravity();
-		
-        liquid[i].mVelocity.x += g.x * deltaT;
-		liquid[i].mVelocity.y += g.y * deltaT;
-		liquid[i].mPosition.x += liquid[i].mVelocity.x * deltaT;
-		liquid[i].mPosition.y += liquid[i].mVelocity.y * deltaT;
-	}
-	
-	[self checkBounds];
-	
-	for (NSInteger i = 0; i < PARTICLES_COUNT; ++i)
-	{
-		liquid[i].sp.position = ccp(PTM_RATIO * liquid[i].mPosition.x / CC_CONTENT_SCALE_FACTOR(), PTM_RATIO * liquid[i].mPosition.y / CC_CONTENT_SCALE_FACTOR());
-	}
-}
+
 /*
  -(void)resolveIntersections:(float)deltaT
  {

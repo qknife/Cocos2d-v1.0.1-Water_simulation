@@ -13,7 +13,8 @@ bool QueWorldInteractions::ReportFixture(b2Fixture* fixture)
     for(int i = 0; i < numParticles; i++)
     {
         int particleIdx = hashGridList[x][y].GetNext();         
-        b2Vec2 particlePos=b2Vec2(InterPriclScaleFactor * liquid[particleIdx].mR.x, InterPriclScaleFactor * liquid[particleIdx].mR.y);
+        b2Vec2 particlePos=b2Vec2(InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * liquid[particleIdx].mR.x,
+                                  InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * liquid[particleIdx].mR.y);
           
         if(fixture->GetBody()->GetType() == b2_staticBody)
         {
@@ -64,6 +65,7 @@ static float fluidMinX;
 static float fluidMaxX;
 static float fluidMinY;
 static float fluidMaxY;
+float sizeh;
 
 @implementation World3
 
@@ -160,7 +162,6 @@ tParticle * tSpatialGridIterator::FindFirst(const tVector2 & pos,
             }
         }
     }
-    
     if (mNParticleLists > 0)
     {
         mCurrentParticle = mParticleLists[mCurrentListIndex];
@@ -206,8 +207,8 @@ inline int hashY(float y)
 		fluidMaxX = MW(100);
 		fluidMinY = MH(0);
 		fluidMaxY = MH(100);
-        knorm = 0.4f;  // 0.6f
-        ktang = 0.5f;  //0.8f
+        knorm = 0.05f;  // 0.6f
+        ktang = 0.05f;  //0.8f
       //  [self ReadConfig];
                   
 		[self schedule: @selector(tick:) interval:1.0f / 60.0f];
@@ -345,10 +346,10 @@ inline int hashY(float y)
     gRenderDensityMin  =    500;
     gRenderDensityMax  =    800;
     gDomainX           =      2;
-    gDensity0        =     1000.0;
+    gDensity0        =     5000.0;//1000.0
     gNParticles      =      400;
-    gViscosity       =        0.2;  //  0.05
-    gGasK            =       10.0;
+    gViscosity       =        0.25;  //  0.05
+    gGasK            =       3.0;//10.0
     gTimeStep       =         0.01;
     gTimeScale       =        1.0;
     gBoundaryForceScale   = 400.0;
@@ -361,10 +362,10 @@ inline int hashY(float y)
     gContainerWidth = gContainerWidthFrac * gDomainX;
     gContainerHeight = gContainerHeightFrac * gDomainX;
     gContainerX = 0.5f * gDomainX - 0.5f * gContainerWidth;
-    gContainerY = 0.1f * gDomainY;
+    gContainerY = 0.1f * gDomainY/CC_CONTENT_SCALE_FACTOR();
     gInitialFluidHeight = gInitialFluidHeightFrac * gContainerHeight;
     
-    tScalar volume = 0.6f*gContainerWidth * gInitialFluidHeight;
+    tScalar volume = 0.5f*gContainerWidth * gInitialFluidHeight;//0.5
     gParticleRadius = sqrt(volume/(4.0f * gNParticles));
     
     gParticleMass = volume * gDensity0 / gNParticles;
@@ -386,17 +387,17 @@ inline int hashY(float y)
 		intersectQueryCallback = new QueWorldInteractions(hashGridList, gParticles,knorm,ktang,gParticleRadius);
         //      eulerIntersectQueryCallback = new QueryWorldPostIntersect(hashGridList, liquid);
 	}
-    
+    sizeh = size.height;
     //InterPriclScaleFactor = 12.0f;
     int i, k=(int) sqrt(gNParticles);
     for (i = 0 ; i < gNParticles ; ++i)
     {
         gParticles[i].mR.Set(
-                             gContainerX +  0.25f+0.6f * gContainerWidth  * (i / k ) / k  ,
+                             gContainerX +  0.25f + 0.6f * gContainerWidth  * (i / k ) / k  ,
                              gContainerY + 2.0f + 0.5f *  gInitialFluidHeight * (i % k) / k);
         
         CCSprite *sprite = [CCSprite spriteWithFile:@"drop.png"]; // создать указатель на спрайт
-        sprite.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x/RIntoSpr_Factor, InterPriclScaleFactor*gParticles[i].mR.y/RIntoSpr_Factor) ;
+        sprite.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x/PTM_RATIO, InterPriclScaleFactor*gParticles[i].mR.y/PTM_RATIO) ;
         gParticles[i].mOldR = gParticles[i].mR;
         gParticles[i].mV.Set(0.0f, 0.0f);
         gParticles[i].mDensity = gDensity0;
@@ -408,8 +409,8 @@ inline int hashY(float y)
         gParticles[i].mN.Set(0.0f, 0.0f);
         gParticles[i].mNext = 0;
         gParticles[i].sp=sprite;
-        gParticles[i].sp.scaleX = 1.2f;
-        gParticles[i].sp.scaleY = 1.2f;
+        gParticles[i].sp.scaleX = 1.2f*CC_CONTENT_SCALE_FACTOR();
+        gParticles[i].sp.scaleY = 1.2f*CC_CONTENT_SCALE_FACTOR();
         [BATCH addChild:gParticles[i].sp];
     }
 }
@@ -465,42 +466,25 @@ inline int hashY(float y)
 
 -(void) spritevisibles
 {
-    for(int a = 0; a < hashWidth; a++)
-    {
-		for(int b = 0; b < hashHeight; b++)
+    float porog = 1.6f;
+    for (int x = 0; x < hashWidth; ++x)  //// процедура определения необходимости отображения
+	{
+		for (int y = 0; y < hashHeight; ++y)    // соответствующего спрайта
 		{
-			hashGridList[a][b].Clear();
-	 	}
-    }
-    for(int a = 0; a < gNParticles; a++)
-    {
-        gParticles[a].sp.visible=YES;
-        
-		int hcell = myMap(InterPriclScaleFactor * gParticles[a].mR.x, fluidMinX, fluidMaxX, 0, hashWidth-.001f);
-		int vcell = myMap(InterPriclScaleFactor * gParticles[a].mR.y, fluidMinY, fluidMaxY, 0, hashHeight-.001f);
-        
-		if(hcell > -1 && hcell < hashWidth && vcell > -1 && vcell < hashHeight)
-		{
-			hashGridList[hcell][vcell].PushBack(a);
-		}
-    }
-    float porog = 1.0f;
-    for(int x = 0; x < hashWidth; x++)   // процедура определения необходимости отображения
- 	{
-        for(int y = 0; y < hashHeight; y++)         // соответствующего спрайта
-		{
-            if(!hashGridList[x][y].IsEmpty())
-            {
-                int a, b;
+			if(!hashGridList[x][y].IsEmpty())
+			{
+				int a, b;
                 hashGridList[x][y].ResetIterator();
-                for(int i=1;i<=4;i++) a = hashGridList[x][y].GetNext();
-                while (a>-1)
+                a = hashGridList[x][y].GetNext();
+                while (a != -1)
                 {
                     BOOL isXN = NO, isXV = NO, isYN = NO, isYV = NO;
                     hashGridList[x][y].ResetIterator();
-                    while (b!=a)
+                    b = hashGridList[x][y].GetNext();
+                    while ( b!=-1)
                     {
-                     b = hashGridList[x][y].GetNext();
+                     if (b!=a)
+                     {
                      if (gParticles[a].sp.visible)
                       {
                         
@@ -533,15 +517,24 @@ inline int hashY(float y)
                             (dx * dx + dy * dy < porog* porog *  gParticleRadius *  gParticleRadius);
                         }
                       }
+                     }
+                     b = hashGridList[x][y].GetNext();
                     }
+                    hashGridList[x][y].ResetIterator();
+                    b =-1;
+                    while (b!=a)
+                    {
+                        b = hashGridList[x][y].GetNext();
+                    }
+                    b = hashGridList[x][y].GetNext();
+                    ////////////// a
                     gParticles[a].sp.visible = !(isXN && isXV && isYN && isYV );
-                    
-                    
                     a = hashGridList[x][y].GetNext();
                 }
-            }
+			}
 		}
-    }
+	}
+    
 }
 
 -(void) bodytouchtest :(float) deltaT
@@ -578,7 +571,7 @@ inline int hashY(float y)
 -(void) tick: (ccTime) dt
 {
     b2Vec2 gw=WORLD->GetGravity();
-    gGravity =tVector2( gw.x,gw.y);
+    gGravity =tVector2( -0.8* gw.y,0.8 * gw.y);/// -1.1* gw.y,1.1 * gw.y       ///////////////////////////////////////////////////////
     [self Display :  1.f/60];
 }
 
@@ -593,7 +586,7 @@ bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& ne
 	{
 		b2CircleShape* pCircleShape = static_cast<b2CircleShape*>(fixture->GetShape());
 		const b2Transform& xf = fixture->GetBody()->GetTransform();
-		float radius = pCircleShape->m_radius + particleRadius;
+		float radius = pCircleShape->m_radius + particleRadius* CC_CONTENT_SCALE_FACTOR();
 		b2Vec2 circlePos = xf.p + pCircleShape->m_p;
 		b2Vec2 delta = particlePos - circlePos;
 		if (delta.LengthSquared() > radius * radius)
@@ -622,7 +615,7 @@ bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& ne
 		float shortestDistance = 99999.0f;
 		for (int i = 0; i < numVerts ; ++i)
 		{
-            b2Vec2 vertex = vertices[i] + 0.4f * normals[i] - particlePos;
+            b2Vec2 vertex = vertices[i] + 0.4f*CC_CONTENT_SCALE_FACTOR() * normals[i] - particlePos;
 			float distance = b2Dot(normals[i], vertex);
 			if (distance < 0)
 			{
@@ -654,7 +647,7 @@ bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& ne
 
 void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, tParticle *liquid,float knorm, float ktang)
 {
-	liquid[particleIdx].mR = tVector2(nearestPos.x,nearestPos.y)/InterPriclScaleFactor;
+	liquid[particleIdx].mR = tVector2(nearestPos.x,nearestPos.y)/(InterPriclScaleFactor*CC_CONTENT_SCALE_FACTOR());
     tVector2 V = liquid[particleIdx].mV;
     float VNModule = V.x * normal.x + V.y * normal.y;
     tVector2 Vn;
@@ -852,9 +845,8 @@ float cube(float a)
                     particle->mViscosityForce -= tmp;
                 }
             }
-        }
+        }        
     }
-    
     //AddBoundaryForces();
 }
 
@@ -906,6 +898,7 @@ float cube(float a)
 {
     //static int lastTime = glutGet(GLUT_ELAPSED_TIME);
     //int thisTime = glutGet(GLUT_ELAPSED_TIME);
+   //*
     lastTime = thisTime;
     thisTime+= dt;
     
@@ -916,7 +909,6 @@ float cube(float a)
     {
         ddt = 0.2f;
         residual = 0.0f;
-      //  TRACE("can't keep up \n");
     }
     int nLoops = (int) ((ddt + residual)/ gTimeStep);
     if (nLoops > 0)
@@ -929,11 +921,76 @@ float cube(float a)
         }
         lastTime = thisTime;
     }
-    [self spritevisibles];
+    //[self Integrate];
+    
+    for(int a = 0; a < hashWidth; a++)
+    {
+		for(int b = 0; b < hashHeight; b++)
+		{
+			hashGridList[a][b].Clear();
+	 	}
+    }
+    for(int a = 0; a < gNParticles; a++)
+    {
+        gParticles[a].sp.visible=YES;
+        
+		int hcell = myMap(InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * gParticles[a].mR.x, fluidMinX, fluidMaxX, 0, hashWidth-.001f);
+		int vcell = myMap(InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * gParticles[a].mR.y, fluidMinY, fluidMaxY, 0, hashHeight-.001f);
+        
+		if(hcell > -1 && hcell < hashWidth && vcell > -1 && vcell < hashHeight)
+		{
+			hashGridList[hcell][vcell].PushBack(a);
+		}
+    }
     [self bodytouchtest : dt];
+    //*/
+    
+//    float smoothscale = 0.4f;
+//    tVector2 avggroup=tVector2(0,0);
+//    for (int x = 0; x < hashWidth; ++x)  //              velocity smooth
+//	{
+//		for (int y = 0; y < hashHeight; ++y)
+//		{
+//			if(!hashGridList[x][y].IsEmpty())
+//			{
+//				int a;
+//                hashGridList[x][y].ResetIterator();
+//                a = hashGridList[x][y].GetNext();
+//                int count = 0;
+//                while (a != -1)
+//                {
+//                    avggroup = count/(count+1) * avggroup   +(1.0f/(count+1)) * gParticles[a].mV;
+//                    count++;
+//                    a = hashGridList[x][y].GetNext();
+//                }
+//                
+//                hashGridList[x][y].ResetIterator();
+//                a = hashGridList[x][y].GetNext();
+//                
+//                while (a != -1)
+//                {
+//                    gParticles[a].mV = smoothscale * gParticles[a].mV + (1-smoothscale) * avggroup;                    
+//                    a = hashGridList[x][y].GetNext();
+//                }
+//			}
+//		}
+//	}
+    
+    [self spritevisibles];
     for (int i=0;i<gNParticles;i++)
-      gParticles[i].sp.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x*PTM_RATIO/CC_CONTENT_SCALE_FACTOR(),
-                                      InterPriclScaleFactor*gParticles[i].mR.y *PTM_RATIO/CC_CONTENT_SCALE_FACTOR()  ) ;
+    {
+         if (InterPriclScaleFactor * gParticles[i].mR.y< sizeh /10/PTM_RATIO)
+         {
+             gParticles[i].mR.y = //CC_CONTENT_SCALE_FACTOR()*
+                                  sizeh/10/InterPriclScaleFactor/PTM_RATIO;
+         }
+       
+        gParticles[i].sp.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x*PTM_RATIO,// /CC_CONTENT_SCALE_FACTOR(),
+                                      InterPriclScaleFactor*gParticles[i].mR.y *PTM_RATIO//  /CC_CONTENT_SCALE_FACTOR()
+                                                ) ;
+   
+    }
+    
     
 //    for(int i=0; i<gNParticles; i++)
  //       gParticles[i].sp.position = ccp(gParticles[i].mR.x * PTM_RATIO/CC_CONTENT_SCALE_FACTOR() ,
