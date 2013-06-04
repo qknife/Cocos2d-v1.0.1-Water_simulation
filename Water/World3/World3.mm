@@ -70,7 +70,7 @@ float sizeh, sizew;
 
 //NSArray * WaterCell;
 const int CouVert =6;
-float WaterCell[CouVert][2]={{45.f,70.f},{60.f,70.f},{62.f,90.f},{47.f,97.f},{38.f,93.f},{36.f,74.f}};
+float WaterCell[CouVert][2]={{45,70},{70,70},{72,90},{44,97},{18,93},{16,74}};
 
 @implementation World3
 
@@ -204,11 +204,6 @@ inline int hashY(float y)
 		fluidMaxX = MW(100);
 		fluidMinY = MH(0);
 		fluidMaxY = MH(100);
-        knorm = 0.00f;
-        ktang = 0.00f;
-        //WaterCell = new NSArray(10);
-        
-        
 		[self schedule: @selector(tick:) interval:1.0f / 60.0f];
         // SCALAR_TINY = 1E-3;//??????????????????????????????????????????????????????????????
         lastTime=0;thisTime=0;
@@ -333,7 +328,7 @@ int NextArrayIndex (int idx)
     tScalar gContainerWidthFrac = 1.f;
     tScalar gContainerHeightFrac = 1.f;
     tScalar gInitialFluidHeightFrac = 0.25f;
-    tScalar kernelScale = 5.0f;
+    tScalar kernelScale = 4.5f;//5.0
     gBoundaryForceScale = 0.0f;
     gBoundaryForceScaleDist = 0.1f;
     gWindowW       =  size.width ;
@@ -344,9 +339,9 @@ int NextArrayIndex (int idx)
     gRenderDensityMin  =    500;
     gRenderDensityMax  =    800;
     gDomainX           =      2;
-    gDensity0        =     5000.0;
+    gDensity0        =     4500.0;
     gViscosity       =        0.25;
-    gGasK            =       3.0;
+    gGasK            =       3.2;
     gTimeStep       =         0.01;
     gTimeScale       =        1.0;
     gBoundaryForceScale   = 400.0;
@@ -356,7 +351,7 @@ int NextArrayIndex (int idx)
     gObjectBoundaryScale  =  20.0;
     gObjectBuoyancyScale  =  12.0;
     gParticleRadius = 0.026f;
-    float gPositionRadius  = 0.037f;
+    float gPositionRadius  = 0.048f;
     gDomainY = gDomainX * gWindowH / gWindowW;
     gContainerWidth = gContainerWidthFrac * gDomainX;
     gContainerHeight = gContainerHeightFrac * gDomainY;
@@ -448,7 +443,7 @@ int NextArrayIndex (int idx)
         }
     }
     
-    tScalar volume = 4 * gNParticles * gParticleRadius * gParticleRadius;// 0.7f*gContainerWidth * gInitialFluidHeight;//0.5
+    tScalar volume = 4 * gNParticles * gParticleRadius * gParticleRadius;
     gParticleMass = volume * gDensity0 / gNParticles;
     
     gParticles = new tParticle[gNParticles];
@@ -543,8 +538,8 @@ int NextArrayIndex (int idx)
         gParticles[i].mN.Set(0.0f, 0.0f);
         gParticles[i].mNext = 0;
         gParticles[i].sp=sprite;
-        gParticles[i].sp.scaleX = 0.1f*CC_CONTENT_SCALE_FACTOR()*InterPriclScaleFactor;
-        gParticles[i].sp.scaleY = 0.1f*CC_CONTENT_SCALE_FACTOR()*InterPriclScaleFactor;
+        gParticles[i].sp.scaleX = 0.12f*CC_CONTENT_SCALE_FACTOR()*InterPriclScaleFactor;
+        gParticles[i].sp.scaleY = 0.12f*CC_CONTENT_SCALE_FACTOR()*InterPriclScaleFactor;
         [BATCH addChild:gParticles[i].sp];
     }
 }
@@ -592,7 +587,7 @@ int NextArrayIndex (int idx)
 
 -(void) spritevisibles
 {
-    float porog =10.f;
+    float porog =1.f;
     int count=0;
     float visibleradius = porog * gParticleRadius;
     for (int x = 0; x < hashWidth; ++x)  //// процедура определения необходимости отображения
@@ -609,7 +604,7 @@ int NextArrayIndex (int idx)
                     if (gParticles[a].sp.visible)
                     {
                         BOOL isLeft = NO, isRightBottom = NO, isRightTop = NO,
-                        isxminer=NO, isxmaxer=NO, isyminer=NO, isymaxer=NO;
+                        isxminer=NO, isxmaxer=NO, isyminer= NO, isymaxer=NO;
                         hashGridList[x][y].ResetIterator();
                         b = hashGridList[x][y].GetNext();
                         while ( b!=-1)
@@ -637,10 +632,10 @@ int NextArrayIndex (int idx)
                                                    visibleradius *  visibleradius) &&
                                     (dx * dx + dy * dy < visibleradius *  visibleradius);
                                 }
-                                isxminer = isxminer || ((dx<-0.2 * gParticleRadius) && (dy < -0.2 * gParticleRadius) );
-                                isxmaxer = isxmaxer || ((dx>0.2 * gParticleRadius) && (dy < -0.2 * gParticleRadius) );
-                                isyminer = isyminer || ((dx<-0.2 * gParticleRadius) && (dy > 0.2 * gParticleRadius) );
-                                isymaxer = isymaxer || ((dx>0.2 * gParticleRadius) && (dy > 0.2 * gParticleRadius) );
+                                isxminer = isxminer || (dx<-0.1 * gParticleRadius) ;
+                                isxmaxer = isxmaxer || (dx>0.1 * gParticleRadius)  ;
+                                isyminer = isyminer || (dy < - 0.1 * gParticleRadius) ;
+                                isymaxer = isymaxer || (dy > 0.1 * gParticleRadius) ;
                             }
                             b = hashGridList[x][y].GetNext();
                         }
@@ -650,7 +645,7 @@ int NextArrayIndex (int idx)
                         {
                             b = hashGridList[x][y].GetNext();
                         }
-                        gParticles[a].sp.visible = !(isLeft && isRightBottom && isRightTop && isxminer && isxmaxer && isyminer && isymaxer);
+                        gParticles[a].sp.visible = !(isLeft && isRightBottom && isRightTop  && (( isxminer && isxmaxer) || (isyminer && isymaxer )) );
                         if (!gParticles[a].sp.visible)
                         {
                             count++;
@@ -694,7 +689,7 @@ int NextArrayIndex (int idx)
 -(void) tick: (ccTime) dt
 {
     b2Vec2 gw=WORLD->GetGravity();
-    gGravity =tVector2( 0.7* gw.x,0.7 * gw.y);/// -1.1* gw.y,1.1 * gw.y       ///////////////////////////////////////////////////////
+    gGravity =tVector2( 0.7* gw.x,0.7 * gw.y);
     [self Display :  1.f/60];
 }
 
@@ -1038,7 +1033,7 @@ float cube(float a)
 		}
     }
     [self bodytouchtest : dt];
-    [self spritevisibles];
+   // [self spritevisibles];
     for (int i=0;i<gNParticles;i++)
     {
         
