@@ -107,7 +107,6 @@
 #define BFLUID	  			   2
 #define DWORD int
 
-#define InterPriclScaleFactor  12
 
 #define hashWidth	   	      (30)
 #define hashHeight		      (30)
