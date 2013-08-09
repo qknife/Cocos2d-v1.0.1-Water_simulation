@@ -26,7 +26,7 @@
 #define MH(_p_) (SIZE.height / 100.0f * _p_) / PTM_RATIO
 
 @interface Common : NSObject
-
+          
 +(b2World *)world;
 +(CGSize)size;
 +(CCSpriteBatchNode *)batch;

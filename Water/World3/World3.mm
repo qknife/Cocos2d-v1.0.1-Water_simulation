@@ -1,11 +1,16 @@
 // Import the interfaces
 #import "World3.h"
 #import "Common.h"
+#import "DLRenderTexture.h"
+
+#define MH(_p_) (SIZE.height / 100.0f * _p_) / PTM_RATIO
 
 float InterPriclScaleFactor;
 
 bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& nearestPos, b2Vec2& impactNormal, float particleRadius);
 void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, tParticle *liquid,float knorm, float ktang);
+
+float sq2 (float x) {return x * x;}
 
 bool QueWorldInteractions::ReportFixture(b2Fixture* fixture)
 {
@@ -14,9 +19,8 @@ bool QueWorldInteractions::ReportFixture(b2Fixture* fixture)
     for(int i = 0; i < numParticles; i++)
     {
         int particleIdx = hashGridList[x][y].GetNext();
-        b2Vec2 particlePos=b2Vec2(InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * liquid[particleIdx].mR.x,
-                                  InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * liquid[particleIdx].mR.y);
-        
+        b2Vec2 particlePos=b2Vec2( CC_CONTENT_SCALE_FACTOR() * liquid[particleIdx].mR.x * InterPriclScaleFactor,
+                                   CC_CONTENT_SCALE_FACTOR() * liquid[particleIdx].mR.y * InterPriclScaleFactor);
         if(fixture->GetBody()->GetType() == b2_staticBody)
         {
             b2Vec2 nearestPos(0,0);
@@ -34,26 +38,32 @@ bool QueWorldInteractions::ReportFixture(b2Fixture* fixture)
             bool inside = ParticleSolidCollision3(fixture, particlePos, nearestPos, normal, PartRadius);
             if (inside)
             {
-                b2Vec2 particleVelocity = b2Vec2(liquid[particleIdx].mV.x,liquid[particleIdx].mV.y);
-                particleVelocity *= deltaT;
-                b2Vec2 impulsePos = particlePos;
-                b2Vec2 pointVelocity = fixture->GetBody()->GetLinearVelocityFromWorldPoint(impulsePos);
-                b2Vec2 pointVelocityAbsolute = pointVelocity;
-                pointVelocity *= deltaT;
-                b2Vec2 relativeVelocity = particleVelocity - pointVelocity;
-                b2Vec2 pointVelNormal = normal;
-                pointVelNormal *= b2Dot(relativeVelocity, normal);
-                b2Vec2 pointVelTangent = relativeVelocity - pointVelNormal;
-                const float slipFriction = 0.3f;
-                pointVelTangent *= slipFriction;
-                b2Vec2 impulse = pointVelNormal - pointVelTangent;
-                fixture->GetBody()->ApplyLinearImpulse(impulse, impulsePos);
-                b2Vec2 buoyancy = b2Vec2(0, 10.f);
-                const float buoyancyAdjuster = 0.f;
-                buoyancy *= buoyancyAdjuster;
-                fixture->GetBody()->ApplyForce(buoyancy, fixture->GetBody()->GetPosition());
-                liquid[particleIdx].mV -= tVector2(impulse.x,impulse.y );
-                liquid[particleIdx].mV += tVector2(pointVelocityAbsolute.x,pointVelocityAbsolute.y);
+                float dotnv = normal.x * liquid[particleIdx].mV.x + normal.y * liquid[particleIdx].mV.y;
+                if (dotnv<0)
+                  {                                           
+                   b2Vec2 pointVelocity = fixture->GetBody()->GetLinearVelocityFromWorldPoint(particlePos);                   
+                   b2Vec2 particleVelocity = b2Vec2(liquid[particleIdx].mV.x,liquid[particleIdx].mV.y);                    
+                   particleVelocity *= deltaT;            
+                   pointVelocity *= deltaT;                      
+                   b2Vec2 relativeVelocity = particleVelocity - pointVelocity;                      
+                   b2Vec2 pointVelNormal = normal;
+                   pointVelNormal *= b2Dot(relativeVelocity, normal);
+                   b2Vec2 pointVelTangent = relativeVelocity - pointVelNormal;                      
+                   const float slipFriction = 0.1f;
+                   pointVelTangent*= slipFriction;
+					  
+//                   liquid[particleIdx].mV.x -= 0.9f * 2 * dotnv * normal.x +  pointVelocity.x + pointVelTangent.x;
+//                   liquid[particleIdx].mV.y -= 0.9f * 2 * dotnv * normal.y +  pointVelocity.y  + pointVelTangent.y;
+//                   liquid[particleIdx].mR = liquid[particleIdx].mOldR + gTimeStep * liquid[particleIdx].mV;
+					liquid[particleIdx].mR = tVector2(nearestPos.x, nearestPos.y)/(InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR());
+			//		  liquid[particleIdx].mV = tVector2(pointVelocity.x,pointVelocity.y);
+					  
+                  }
+                  float CurPres = liquid[particleIdx].mP;
+                  if (CurPres>0)
+                  {
+                   fixture->GetBody()->ApplyLinearImpulse(-0.9f*sq2(InterPriclScaleFactor/12)*CurPres * PartRadius * normal, particlePos);
+                  }
             }
         }
     }
@@ -69,8 +79,9 @@ static float fluidMaxY;
 float sizeh, sizew;
 
 //NSArray * WaterCell;
-const int CouVert =6;
-float WaterCell[CouVert][2]={{45,70},{70,70},{72,90},{44,97},{18,93},{16,74}};
+const int CouVert =5;
+float WaterCell[CouVert][2]={{20,50},{39,42},{70,40.f},{85, 50.f},{32, 60}};
+
 
 @implementation World3
 
@@ -205,7 +216,6 @@ inline int hashY(float y)
 		fluidMinY = MH(0);
 		fluidMaxY = MH(100);
 		[self schedule: @selector(tick:) interval:1.0f / 60.0f];
-        // SCALAR_TINY = 1E-3;//??????????????????????????????????????????????????????????????
         lastTime=0;thisTime=0;
 	}
 	return self;
@@ -321,14 +331,53 @@ int NextArrayIndex (int idx)
     return ((idx + 1) % CouVert);
 }
 
+-(void)createbody
+{
+	for (int i=0;i<2;i++)
+	{
+	// Define the dynamic body.
+	b2BodyDef bodyDef;
+	bodyDef.type = b2_dynamicBody;
+    float UNITw=MW(1.f),UNITh=MH(1.f);
+	bodyDef.position.Set(0,0);
+	b2Body *body = WORLD->CreateBody(&bodyDef);
+	// Define another box shape for our dynamic body.
+	//b2CircleShape blob;    blob.m_radius = 8/PTM_RATIO;
+    b2Vec2 *vrts;
+    //float reg=7.f;
+    
+    vrts=new b2Vec2[5];
+    vrts[0]=b2Vec2((30.f + 33.f * i) * UNITw, (80.f + 0.f * i) * UNITh);
+    vrts[1]=b2Vec2((35.f + 33.f * i) * UNITw, (71.f + 0.f * i) * UNITh);
+    vrts[2]=b2Vec2((50.f + 33.f * i) * UNITw, (71.f + 0.f * i) * UNITh);
+    vrts[3]=b2Vec2((55.f + 33.f * i) * UNITw, (80.f + 0.f * i) * UNITh);
+    vrts[4]=b2Vec2((40.f + 33.f * i) * UNITw, (85.f + 0.f * i) * UNITh);
+    
+    b2PolygonShape blob;
+    blob.Set(vrts, 5);
+    
+	// Define the dynamic body fixture.
+	b2FixtureDef fixtureDef;
+	fixtureDef.shape = &blob;
+	fixtureDef.density = 0.3f;
+	fixtureDef.friction = 0.1f;
+    fixtureDef.restitution = 0.4f;
+	body->CreateFixture(&fixtureDef);
+	}
+
+    //free(vrts);
+}
+
+
 -(void)particlesCountUp:(NSInteger)diff_
 {
     CGSize size = [[CCDirector sharedDirector] winSize];
-    
+    sizeh = size.height;sizew = size.width;    
+    [self createbody];
     tScalar gContainerWidthFrac = 1.f;
     tScalar gContainerHeightFrac = 1.f;
     tScalar gInitialFluidHeightFrac = 0.25f;
-    tScalar kernelScale = 4.5f;//5.0
+    tScalar kernelScale = 4.5f;
     gBoundaryForceScale = 0.0f;
     gBoundaryForceScaleDist = 0.1f;
     gWindowW       =  size.width ;
@@ -340,8 +389,8 @@ int NextArrayIndex (int idx)
     gRenderDensityMax  =    800;
     gDomainX           =      2;
     gDensity0        =     4500.0;
-    gViscosity       =        0.25;
-    gGasK            =       3.2;
+    gViscosity       =        0.28;    //  0.25
+    gGasK            =         5;     //  3.2
     gTimeStep       =         0.01;
     gTimeScale       =        1.0;
     gBoundaryForceScale   = 400.0;
@@ -369,9 +418,7 @@ int NextArrayIndex (int idx)
     InterPriclScaleFactor =12 *size.height /1024.f;
     int i;
     gNParticles=0;
-    int MinHeiIndex;
-    int RightMax;
-    
+    int MinHeiIndex,  RightMax;
     float minhval = 10000.f, maxhval = -1.f;
     for(int i = 0; i < CouVert; i++)
     {
@@ -386,8 +433,9 @@ int NextArrayIndex (int idx)
             RightMax = i;
         }
     }
-    float unith = gContainerHeight/100 ,
-    unitw = gContainerWidth/100;
+    float unith =  gContainerHeight/100,//*sizeh/1024.f,
+          unitw =  gContainerWidth/100;// ; * sizew/768.f;
+   
     if ( WaterCell[PriorArrayIndex(MinHeiIndex)][0] < WaterCell[MinHeiIndex][0])
     {
         i = MinHeiIndex;
@@ -395,9 +443,9 @@ int NextArrayIndex (int idx)
         while (i!= RightMax)
         {
             int j = PriorArrayIndex(i);
-            for(float cY = WaterCell[i][1] * unith; cY < WaterCell[j][1]*unith; cY +=gPositionRadius)
+            for(float cY = WaterCell[i][1] * unith; cY < WaterCell[j][1]*unith-eps; cY +=gPositionRadius)
             {
-                if (WaterCell[nextk][1]*unith < cY)
+                if (WaterCell[nextk][1]*unith < cY-eps)
                 {
                     k = nextk;
                     nextk = NextArrayIndex(k);
@@ -418,16 +466,16 @@ int NextArrayIndex (int idx)
     else
     {
         i = MinHeiIndex;
-        int k = MinHeiIndex, nextk = NextArrayIndex(MinHeiIndex);
+        int k = MinHeiIndex, nextk = PriorArrayIndex(MinHeiIndex);
         while (i!= RightMax)
         {
-            int j = PriorArrayIndex(i);
-            for(float cY = WaterCell[i][1]*unith; cY < WaterCell[j][1]*unith; cY +=gPositionRadius)
+            int j = NextArrayIndex(i);
+            for(float cY = WaterCell[i][1]*unith; cY < WaterCell[j][1]*unith-eps; cY +=gPositionRadius)
             {
-                if (WaterCell[nextk][1]*unith < cY)
+                if (WaterCell[nextk][1]*unith < cY-eps)
                 {
                     k = nextk;
-                    nextk = NextArrayIndex(k);
+                    nextk = PriorArrayIndex(k);
                 }
                 float MinBound = WaterCell[i][0]*unitw +
                 (cY - WaterCell[i][1]*unith)*
@@ -445,21 +493,15 @@ int NextArrayIndex (int idx)
     
     tScalar volume = 4 * gNParticles * gParticleRadius * gParticleRadius;
     gParticleMass = volume * gDensity0 / gNParticles;
-    
     gParticles = new tParticle[gNParticles];
-    
     gSpatialGrid = new tSpatialGrid(
                                     tVector2(-gContainerWidth, -gContainerHeight),
                                     tVector2(gDomainX + gContainerWidth, gDomainY + gContainerHeight), gKernelH);
     if (gParticles)
 	{
-		intersectQueryCallback = new QueWorldInteractions(hashGridList, gParticles,knorm,ktang,gParticleRadius);
+		intersectQueryCallback = new QueWorldInteractions(hashGridList, gParticles,knorm,ktang,gParticleRadius,gTimeStep);
 	}
-    sizeh = size.height;sizew = size.width;
-    
-    
     int Indx=0;
-    
     if ( WaterCell[PriorArrayIndex(MinHeiIndex)][0] < WaterCell[MinHeiIndex][0])
     {
         i = MinHeiIndex;
@@ -469,7 +511,7 @@ int NextArrayIndex (int idx)
             int j = PriorArrayIndex(i);
             for(float cY = WaterCell[i][1]*unith; cY < WaterCell[j][1]*unith-eps; cY +=gPositionRadius)
             {
-                if (WaterCell[nextk][1]*unith < cY)
+                if (WaterCell[nextk][1]*unith < cY-eps)
                 {
                     k = nextk;
                     nextk = NextArrayIndex(k);
@@ -494,16 +536,16 @@ int NextArrayIndex (int idx)
     else
     {
         i = MinHeiIndex;
-        int k = MinHeiIndex, nextk = NextArrayIndex(MinHeiIndex);
+        int k = MinHeiIndex, nextk = PriorArrayIndex(MinHeiIndex);
         while (i!= RightMax)
         {
-            int j = PriorArrayIndex(i);
+            int j = NextArrayIndex(i);
             for(float cY = WaterCell[i][1]*unith; cY < WaterCell[j][1]*unith-eps; cY +=gPositionRadius)
             {
-                if (WaterCell[nextk][1]*unith < cY)
+                if (WaterCell[nextk][1] * unith < cY - eps)
                 {
                     k = nextk;
-                    nextk = NextArrayIndex(k);
+                    nextk = PriorArrayIndex(k);
                 }
                 float MinBound = WaterCell[i][0]*unitw +
                 (cY - WaterCell[i][1]*unith)*
@@ -522,11 +564,12 @@ int NextArrayIndex (int idx)
             i = j;
         }
     }
-    
     for (int i = 0 ; i < gNParticles ; ++i)
     {
         CCSprite *sprite = [CCSprite spriteWithFile:@"drop.png"]; // создать указатель на спрайт
-        sprite.position = ccp(InterPriclScaleFactor*gParticles[i].mR.x/PTM_RATIO, InterPriclScaleFactor*gParticles[i].mR.y/PTM_RATIO) ;
+        sprite.position = ccp(InterPriclScaleFactor * gParticles[i].mR.x * PTM_RATIO,
+							  InterPriclScaleFactor * gParticles[i].mR.y * PTM_RATIO) ;
+		sprite.visible = false;
         gParticles[i].mOldR = gParticles[i].mR;
         gParticles[i].mV.Set(0.0f, 0.0f);
         gParticles[i].mDensity = gDensity0;
@@ -538,8 +581,8 @@ int NextArrayIndex (int idx)
         gParticles[i].mN.Set(0.0f, 0.0f);
         gParticles[i].mNext = 0;
         gParticles[i].sp=sprite;
-        gParticles[i].sp.scaleX = 0.12f*CC_CONTENT_SCALE_FACTOR()*InterPriclScaleFactor;
-        gParticles[i].sp.scaleY = 0.12f*CC_CONTENT_SCALE_FACTOR()*InterPriclScaleFactor;
+        gParticles[i].sp.scaleX = 0.12f * CC_CONTENT_SCALE_FACTOR() * InterPriclScaleFactor;
+        gParticles[i].sp.scaleY = 0.12f * CC_CONTENT_SCALE_FACTOR() * InterPriclScaleFactor;
         [BATCH addChild:gParticles[i].sp];
     }
 }
@@ -689,8 +732,14 @@ int NextArrayIndex (int idx)
 -(void) tick: (ccTime) dt
 {
     b2Vec2 gw=WORLD->GetGravity();
+    int32 velocityIterations = 1;
+    int32  positionIterations = 1;
     gGravity =tVector2( 0.7* gw.x,0.7 * gw.y);
+   
+    WORLD->Step(1.0f / 30.0f, velocityIterations, positionIterations);
+    
     [self Display :  1.f/60];
+    
 }
 
 - (void)accelerometer:(UIAccelerometer*)accelerometer didAccelerate:(UIAcceleration*)acceleration
@@ -704,7 +753,7 @@ bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& ne
 	{
 		b2CircleShape* pCircleShape = static_cast<b2CircleShape*>(fixture->GetShape());
 		const b2Transform& xf = fixture->GetBody()->GetTransform();
-		float radius = pCircleShape->m_radius + 16.f*particleRadius* CC_CONTENT_SCALE_FACTOR();
+		float radius = pCircleShape->m_radius + 0.48f;//2 * particleRadius;
 		b2Vec2 circlePos = xf.p + pCircleShape->m_p;
 		b2Vec2 delta = particlePos - circlePos;
 		if (delta.LengthSquared() > radius * radius)
@@ -714,6 +763,7 @@ bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& ne
 		delta.Normalize();
 		delta *= radius;
 		nearestPos = delta + pCircleShape->m_p;
+        
 		impactNormal = (nearestPos - circlePos);
 		impactNormal.Normalize();
 		return true;
@@ -733,7 +783,7 @@ bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& ne
 		float shortestDistance = 99999.0f;
 		for (int i = 0; i < numVerts ; ++i)
 		{
-            b2Vec2 vertex = vertices[i] + 0.4f*CC_CONTENT_SCALE_FACTOR() * normals[i] - particlePos;
+            b2Vec2 vertex = vertices[i] + 0.2f * (InterPriclScaleFactor/12) * CC_CONTENT_SCALE_FACTOR() * normals[i] - particlePos;
 			float distance = b2Dot(normals[i], vertex);
 			if (distance < 0)
 			{
@@ -760,7 +810,9 @@ bool ParticleSolidCollision3(b2Fixture* fixture, b2Vec2& particlePos, b2Vec2& ne
 
 void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& normal, tParticle *liquid,float knorm, float ktang)
 {
-	liquid[particleIdx].mR = tVector2(nearestPos.x,nearestPos.y)/(InterPriclScaleFactor*CC_CONTENT_SCALE_FACTOR());
+	liquid[particleIdx].mR = tVector2(nearestPos.x, nearestPos.y)/(InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR());
+//	liquid[particleIdx].mOldR = liquid[particleIdx].mR + 0.2f * (liquid[particleIdx].mOldR - liquid[particleIdx].mR);
+//	liquid[particleIdx].mV = tVector2(0, 0);
 }
 
 -(void)Exit
@@ -770,7 +822,7 @@ void SeparateParticleFromBody3(int particleIdx, b2Vec2& nearestPos, b2Vec2& norm
 
 float cube(float a)
 {
-    return a*a*a;
+    return a * a * a;
 }
 //==============================================================
 // CalculatePressure
@@ -990,7 +1042,12 @@ float cube(float a)
                 particle->mOldR.x -= 0.5f * resolveFrac * minDist;
             }
         }
-    }
+//		float Vele = sqrt(gParticles[i].mV.y * gParticles[i].mV.y + gParticles[i].mV.y * gParticles[i].mV.y);
+//		if (Vele > 0.1f)
+//		{
+//			gParticles[i].mV *=0.1f/Vele;
+//		}
+	}
 }
 
 -(void) Display : (float) dt
@@ -1024,9 +1081,13 @@ float cube(float a)
     }
     for(int a = 0; a < gNParticles; a++)
     {
-        gParticles[a].sp.visible=YES;
-		int hcell = myMap(InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * gParticles[a].mR.x, fluidMinX, fluidMaxX, 0, hashWidth-.001f);
-		int vcell = myMap(InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * gParticles[a].mR.y, fluidMinY, fluidMaxY, 0, hashHeight-.001f);
+		gParticles[a].sp.visible =  YES;
+		int hcell = myMap(//InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * gParticles[a].mR.x
+						     gParticles[a].sp.position.x * CC_CONTENT_SCALE_FACTOR()/PTM_RATIO
+						  , fluidMinX, fluidMaxX, 0, hashWidth-.001f);
+		int vcell = myMap(//InterPriclScaleFactor * CC_CONTENT_SCALE_FACTOR() * gParticles[a].mR.y
+						  gParticles[a].sp.position.y * CC_CONTENT_SCALE_FACTOR()/PTM_RATIO
+						  , fluidMinY, fluidMaxY, 0, hashHeight-.001f);
 		if(hcell > -1 && hcell < hashWidth && vcell > -1 && vcell < hashHeight)
 		{
 			hashGridList[hcell][vcell].PushBack(a);
@@ -1046,23 +1107,35 @@ float cube(float a)
                                         InterPriclScaleFactor*gParticles[i].mR.y *PTM_RATIO   ) ;
     }
 }
+-(void) VellocityConstrainter
+{
+for (int i = 0; i < gNParticles; i++)
+	{float vel = sqrt(sq2(gParticles[i].mOldR.x - gParticles[i].mR.x)  +sq2(gParticles[i].mOldR.y - gParticles[i].mR.y)) ;
+	if ( vel/gTimeStep > 5.f)
+		gParticles[i].mOldR = gParticles[i].mR + 1.f * (gTimeStep/vel) * (gParticles[i].mOldR - gParticles[i].mR);
+	}
+}
 //==============================================================
 // Integrate
 //==============================================================
 -(void) Integrate
-{
-    // if (gInteractionMode == INTERACTION_FOUNTAIN)
-    //     DoFountain();
-    
+{    
     [self CalculatePressureAndDensities];
     [self CalculateForces];
-    [self CalculateNewParticles];
+	
+
+    
+	[self CalculateNewParticles];
+	
+
+	
     [self ImposeBoundaryConditions];
-    [self PreventParticleCohabitation];
+	
+	[self PreventParticleCohabitation];
+	
+	
+	
     gSpatialGrid->PopulateGrid(gParticles, gNParticles);
-    // [self CalculateNormalField];
-    // and the objects
-    //IntegrateObjects();
 }
 
 @end

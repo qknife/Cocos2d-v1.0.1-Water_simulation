@@ -210,20 +210,18 @@ static CGSize size;
 	b2PolygonShape sd;
 	gFix.shape = &sd;
 	
-	int const obstacles_count = 7;
-	float data[obstacles_count][5] = {{1,3,49,49,-1.4f / 2},{5,1,40,47,0},{1,4,32,48,0},
-                                     {14,1,68,46,0},{1,11,53,53,0},{1,11,75,53,0}};
+	int const obstacles_count = 3;
+    
+    
+//	float data[obstacles_count][5] = {{1,3,49,49,-1.4f / 2},{5,1,40,47,0},{1,4,32,48,0},
+//                                     {14,1,68,46,0},{1,11,53,53,0},{1,11,75,53,0}};
 	
- //   int const obstacles_count = 3;
-   // float data[obstacles_count][5] = {{17,1,50,50,0},{1,20,35,70,0},{1,20,65,70,0}};
-    
-    
+    float data[obstacles_count][5] ={{30,1,50,30,0},{1,10,19,38,0},{1,10,81,38,0}};
     for (int i = 0; i < obstacles_count; i++)
 	{
 		sd.SetAsBox(data[i][0] * UNIT, data[i][1] * UNIT,b2Vec2(MW(data[i][2]),MH(data[i][3])),data[i][4]);
 		obstacles->CreateFixture(&gFix);
 	}
-
 //	b2CircleShape cd;
 //	gFix.shape = &cd;
 //    cd.m_radius = 2.f * UNIT;

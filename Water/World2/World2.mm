@@ -91,6 +91,10 @@ bool QueryWorldInteractions::ReportFixture(b2Fixture* fixture)
                 // move the particles away from the body
                 liquid[particleIdx].mVelocity -= impulse;
                 liquid[particleIdx].mVelocity += pointVelocityAbsolute;
+                
+                
+                
+                
             }
         }
     } //*/
@@ -180,9 +184,48 @@ inline int hashY(float y)
     return self;
 }
 
+-(void)createbody
+{
+	// Define the dynamic body.
+	b2BodyDef bodyDef;
+	bodyDef.type = b2_dynamicBody;
+    
+	bodyDef.position.Set(0, 0);
+	b2Body *body = WORLD->CreateBody(&bodyDef);
+    
+	// Define another box shape for our dynamic body.
+	//b2CircleShape blob;    blob.m_radius = 8/PTM_RATIO;
+    b2Vec2 *vrts;
+    //float reg=7.f;
+    float UNIT=MH(1.f);
+    vrts=new b2Vec2[5];
+    vrts[0]=b2Vec2(10.f * UNIT, 15.f * UNIT);
+    vrts[1]=b2Vec2(20.f * UNIT, 10.f * UNIT);
+    vrts[2]=b2Vec2(40.f * UNIT, 10.f * UNIT);
+    vrts[3]=b2Vec2(50.f * UNIT, 15.f * UNIT);
+    vrts[4]=b2Vec2(30.f * UNIT, 25.f * UNIT);
+    
+    b2PolygonShape blob;
+    blob.Set(vrts, 5);
+    
+	// Define the dynamic body fixture.
+	b2FixtureDef fixtureDef;
+	fixtureDef.shape = &blob;
+	fixtureDef.density = 1.0f;
+	fixtureDef.friction = 0.0f;
+    fixtureDef.restitution = 0.4f;
+	body->CreateFixture(&fixtureDef);
+    
+    
+    //free(vrts);
+}
+
+
 -(void)particlesCountUp:(NSInteger)diff_
 {
-	CGSize size = [[CCDirector sharedDirector] winSize];
+	[self createbody];
+    
+    CGSize size = [[CCDirector sharedDirector] winSize];
 	
 	// recreate data
 	void *tmp = liquid;
