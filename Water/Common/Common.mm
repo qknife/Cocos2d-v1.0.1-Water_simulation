@@ -210,7 +210,7 @@ static CGSize size;
 	b2PolygonShape sd;
 	gFix.shape = &sd;
 	
-	int const obstacles_count =3;
+	int const obstacles_count = 3;
     
     
 //	float data[obstacles_count][5] = {{1,3,49,49,-1.4f / 2},{5,1,40,47,0},{1,4,32,48,0},

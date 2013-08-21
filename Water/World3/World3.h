@@ -16,7 +16,6 @@
 //#define hashHeight		  (30)
 #define eps                   0.001
 
-
 typedef float tScalar;
 
 template<class T>

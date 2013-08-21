@@ -719,6 +719,7 @@ int NextArrayIndex (int idx)
     gGravity =tVector2( gw.x, gw.y);
     WORLD ->Step(1/30.f, 1, 1);
     [self Display :  1.f/60];
+    
 }
 
 - (void)accelerometer:(UIAccelerometer*)accelerometer didAccelerate:(UIAcceleration*)acceleration
