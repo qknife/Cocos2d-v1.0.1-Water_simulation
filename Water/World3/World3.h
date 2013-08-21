@@ -10,120 +10,14 @@
 #include <math.h>
 #include "vector_inline.h"
 
-#define MAX_PARAM			50
-#define GRID_UCHAR			0xFF
-#define GRID_UNDEF			4294967295
-
-#define RUN_PAUSE			0
-#define RUN_SEARCH			1
-#define RUN_VALIDATE		2
-#define RUN_CPU_SLOW		3
-#define RUN_CPU_GRID		4
-#define RUN_CUDA_RADIX		5
-#define RUN_CUDA_INDEX		6
-#define RUN_CUDA_FULL		7
-#define RUN_CUDA_CLUSTER	8
-#define RUN_PLAYBACK		9
-
-// Scalar params
-#define PMODE				0
-#define PNUM				1
-#define PEXAMPLE			2
-#define PSIMSIZE			3
-#define PSIMSCALE			4
-#define PGRID_DENSITY		5
-#define PGRIDSIZE			6
-#define PVISC				7
-#define PRESTDENSITY		8
-#define PMASS				9
-#define PRADIUS				10
-#define PDIST				11
-#define PSMOOTHRADIUS		12
-#define PINTSTIFF			13
-#define PEXTSTIFF			14
-#define PEXTDAMP			15
-#define PACCEL_LIMIT		16
-#define PVEL_LIMIT			17
-#define PSPACING			18
-#define PGROUND_SLOPE		19
-#define PFORCE_MIN			20
-#define PFORCE_MAX			21
-#define PMAX_FRAC			22
-#define PDRAWMODE			23
-#define PDRAWSIZE			24
-#define PDRAWGRID			25
-#define PDRAWTEXT			26
-#define PCLR_MODE			27
-#define PPOINT_GRAV_AMT		28
-#define PSTAT_OCCUPY		29
-#define PSTAT_GRIDCNT		30
-#define PSTAT_NBR			31
-#define PSTAT_NBRMAX		32
-#define PSTAT_SRCH			33
-#define PSTAT_SRCHMAX		34
-#define PSTAT_PMEM			35
-#define PSTAT_GMEM			36
-#define PTIME_INSERT		37
-#define PTIME_SORT			38
-#define PTIME_COUNT			39
-#define PTIME_PRESS			40
-#define PTIME_FORCE			41
-#define PTIME_ADVANCE		42
-#define PTIME_RECORD		43
-#define PTIME_RENDER		44
-#define PTIME_TOGPU			45
-#define PTIME_FROMGPU		46
-#define PFORCE_FREQ			47
-
-
-// Vector params
-#define PVOLMIN				  0
-#define PVOLMAX				  1
-#define PBOUNDMIN			  2
-#define PBOUNDMAX			  3
-#define PINITMIN			  4
-#define PINITMAX			  5
-#define PEMIT_POS			  6
-#define PEMIT_ANG			  7
-#define PEMIT_DANG			  8
-#define PEMIT_SPREAD		  9
-#define PEMIT_RATE			  10
-#define PPOINT_GRAV_POS		  11
-#define PPLANE_GRAV_DIR		  12
-
-// Booleans
-#define PRUN				   0
-#define PDEBUG				   1
-#define PUSE_CUDA			   2
-#define	PUSE_GRID			   3
-#define PWRAP_X				   4
-#define PWALL_BARRIER		   5
-#define PLEVY_BARRIER		   6
-#define PDRAIN_BARRIER		   7
-#define PPLANE_GRAV_ON		   11
-#define PPROFILE			   12
-#define PCAPTURE			   13
-
-#define BFLUID	  			   2
 #define DWORD int
 
-
-#define hashWidth	   	      (30)
-#define hashHeight		      (30)
+//#define hashWidth	   	      (30)
+//#define hashHeight		  (30)
 #define eps                   0.001
 
-//typedef  b2Vec2 tVector2 ;
+
 typedef float tScalar;
-
-enum tInteractionMode
-{
-    INTERACTION_NONE,
-    INTERACTION_BOX,
-    INTERACTION_CONTAINER,
-    INTERACTION_FOUNTAIN
-};
-
-//tInteractionMode gInteractionMode = INTERACTION_NONE;
 
 template<class T>
 class tArray2D
@@ -400,15 +294,13 @@ void tArray2D<T>::Shift(int offsetX, int offsetY)
     }
 }
 
-
 template<class T>
 void tArray2D<T>::GaussianFilter(float r, int n)
 {
     int i, j, ii, jj, iii, jjj;
     
     int size = (n*2 + 1);
-    float * filter = new float[size * size];
-    
+    float * filter = new float[size * size];    
     for (i = 0 ; i < size ; ++i)
     {
         for (j = 0 ; j < size ; ++j)
@@ -416,8 +308,7 @@ void tArray2D<T>::GaussianFilter(float r, int n)
             filter[i + j * size] = exp ( -( (i-n) * (i-n) + (j-n) * (j-n) ) /
                                         ((float) r * r) );
         }
-    }
-    
+    }    
     for (i = 0 ; i < (int) mNx ; ++i)
     {
         for (j = 0 ; j < (int) mNy ; ++j)
@@ -461,17 +352,14 @@ void tArray2D<T>::Abs()
     }
 }
 
-
 template<class T>
 tArray2D<T> & tArray2D<T>::Add(const tArray2D<T> & rhs)
 {
     Assert(rhs.mNx == mNx);
-    Assert(rhs.mNy == mNy);
-    
+    Assert(rhs.mNy == mNy);    
     unsigned int i;
     for (i = 0 ; i < mNx*mNy ; ++i)
-        mData[i] += rhs.mData[i];
-    
+        mData[i] += rhs.mData[i];    
     return *this;
 }
 
@@ -479,12 +367,10 @@ template<class T>
 tArray2D<T> & tArray2D<T>::Subtract(const tArray2D<T> & rhs)
 {
     Assert(rhs.mNx == mNx);
-    Assert(rhs.mNy == mNy);
-    
+    Assert(rhs.mNy == mNy);    
     unsigned int i;
     for (i = 0 ; i < mNx*mNy ; ++i)
-        mData[i] -= rhs.mData[i];
-    
+        mData[i] -= rhs.mData[i];    
     return *this;
 }
 
@@ -492,12 +378,10 @@ template<class T>
 tArray2D<T> & tArray2D<T>::Multiply(const tArray2D<T> & rhs)
 {
     Assert(rhs.mNx == mNx);
-    Assert(rhs.mNy == mNy);
-    
+    Assert(rhs.mNy == mNy);    
     unsigned int i;
     for (i = 0 ; i < mNx*mNy ; ++i)
-        mData[i] *= rhs.mData[i];
-    
+        mData[i] *= rhs.mData[i];    
     return *this;
 }
 
@@ -505,12 +389,10 @@ template<class T>
 tArray2D<T> & tArray2D<T>::Divide(const tArray2D<T> & rhs)
 {
     Assert(rhs.mNx == mNx);
-    Assert(rhs.mNy == mNy);
-    
+    Assert(rhs.mNy == mNy);    
     unsigned int i;
     for (i = 0 ; i < mNx*mNy ; ++i)
-        mData[i] /= rhs.mData[i];
-    
+        mData[i] /= rhs.mData[i];    
     return *this;
 }
 
@@ -606,27 +488,20 @@ public:
     tVector2 & Normalise() {
         (*this) *= (1.0f / this->GetLength()); return *this;}
     /// Get a normalised copy
-    tVector2 GetNormalised() const {
-        return tVector2(*this).Normalise();}
-    
+    tVector2 GetNormalised() const {  return tVector2(*this).Normalise();}    
     tVector2 & operator+=(const tVector2 & v) {x += v.x, y += v.y; return *this;}
-    tVector2 & operator-=(const tVector2 & v) {x -= v.x, y -= v.y; return *this;}
-    
+    tVector2 & operator-=(const tVector2 & v) {x -= v.x, y -= v.y; return *this;}    
     tVector2 & operator*=(tScalar f) {x *= f; y *= f; return *this;}
-    tVector2 & operator/=(tScalar f) {x /= f; y /= f; return *this;}
-    
+    tVector2 & operator/=(tScalar f) {x /= f; y /= f; return *this;}    
     tVector2 operator-() const {
-        return tVector2(-x, -y);}
-    
-    void Show(const char * str) const;
-    
+        return tVector2(-x, -y);}    
+    void Show(const char * str) const;    
     friend tVector2 operator+(const tVector2 & v1, const tVector2 & v2);
     friend tVector2 operator-(const tVector2 & v1, const tVector2 & v2);
     friend tVector2 operator*(const tVector2 & v1, tScalar f);
     friend tVector2 operator*(tScalar f, const tVector2 & v1);
     friend tVector2 operator/(const tVector2 & v1, tScalar f);
-    friend tScalar Dot(const tVector2 & v1, const tVector2 & v2);
-    
+    friend tScalar Dot(const tVector2 & v1, const tVector2 & v2);    
     // c-style fns avoiding copies
     // out can also be vec1, vec2 or vec3
     friend void AddVector2(tVector2 & out, const tVector2 & vec1, const tVector2 & vec2);
@@ -636,8 +511,7 @@ public:
     friend void ScaleVector2(tVector2 & out, const tVector2 & vec1, tScalar scale);
     /// out = vec1 + scale * vec2
     /// out can also be vec1/vec2
-    friend void AddScaleVector2(tVector2 & out, const tVector2 & vec1, tScalar scale, const tVector2 & vec2);
-    
+    friend void AddScaleVector2(tVector2 & out, const tVector2 & vec1, tScalar scale, const tVector2 & vec2);    
 };
 
 inline tVector2 operator+(const tVector2 & v1, const tVector2 & v2)
@@ -700,7 +574,6 @@ inline void AddScaleVector2(tVector2 & out, const tVector2 & vec1, tScalar scale
     out.y = vec1.y + scale * vec2.y;
 }
 
-
 inline tScalar Min(const tVector2& vec) { if (vec.x<vec.y) return vec.x;else return vec.y;}
 inline tScalar Max(const tVector2& vec) { if (vec.x>vec.y) return vec.x;else return vec.y;}
 
@@ -709,29 +582,22 @@ class tParticle
 public:
                 // The next particle when were stored in a linked list (the spatial grid)
     tParticle     * mNext;
-                // position
     tVector2       mR;
-                // previous position
     tVector2       mOldR;
-                 // density calculated at this particle
     tScalar        mDensity;
-                // pressure - diagnosed from density
     tScalar        mP;
-                // velocity - diagnosed from position since we use verlet/particle
-                    // integration
+	tVector2       mOldV;
     tVector2       mV;
-             // pressure force
-    tVector2       mPressureForce;
-               // gViscosity force
-    tVector2       mViscosityForce;
-              // body force - gravity + some other forces later?
-    tVector2       mBodyForce;
-               // the "color field" for the normal
-    tScalar        mCs;
-               // the normal field (grad(mCs) so not normalised)
+    tVector2       mForce;
+    tVector2       mBodyForce;// body force - gravity + some other forces later?
+    tScalar        mCs;// the "color field" for the normal
     tVector2       mN;
-    CCSprite *              sp;
-
+    float          mLaplasColorField;
+    CCSprite *     sp;
+    short          xIndexCell;
+    short          yIndexCell;
+    short          xIndexSubCell;
+    short          yIndexSubCell;
 };
 
 class tSpatialGridIterator
@@ -739,14 +605,12 @@ class tSpatialGridIterator
 public:
     /// constructor sets the internal state to be sensible,
     tSpatialGridIterator();
-    
     /// This does two things - it does a lookup based on pos and
     /// calculates all the info it will need for subsequent traversals.
     /// Then it returns the first particle. Subsequent particles are
     /// returned by calls to GetNext. May return 0
     tParticle * FindFirst(const tVector2 & pos,
                           const class tSpatialGrid & grid);
-    
     /// updates the internal iterator state and returns the next
     /// particle. Returns 0 if there are no more particles.
     inline tParticle * GetNext(const class tSpatialGrid & grid);
@@ -755,13 +619,10 @@ private:
     /// element of the list. Since this is a 2D grid there are 9
     /// adjacent grid cells that might have a particle
     tParticle * mParticleLists[9];
-    
     /// The number of lists actually in use.
     int mNParticleLists;
-    
     /// current index into mParticleLists
     int mCurrentListIndex;
-    
     /// current particle that we've iterated to and already returned
     /// using FindFirst or GetNext
     tParticle * mCurrentParticle;
@@ -770,22 +631,13 @@ private:
 class tSpatialGrid
 {
 public:
-    /// sets up the internal grid so that it ranges over the domain
-    /// specified, and each grid cell is AT LEAST of size delta. This
-    /// means that for every point in a cell, all other objects within a
-    /// distance less than delta can be found by traversing the
-    /// neighbouring cells
     tSpatialGrid(const tVector2 & domainMin,
                  const tVector2 & domainMax,
                  tScalar delta);
-    
-    ///
     void PopulateGrid(tParticle * particles, int nParticles);
-    
 private:
     /// let the iterator look at our privates
-    friend class tSpatialGridIterator;
-    
+    friend class tSpatialGridIterator;    
     /// for internal use by tSpatialGrid
     class tSpatialGridEntry
     {
@@ -793,10 +645,8 @@ private:
         /// Store the first element in a linked list - tParticle itself
         /// contains the "next" pointer
         tParticle * mFirstParticle;
-    };
-    
-    tArray2D<tSpatialGridEntry>      mGridEntries;
-    
+    };    
+    tArray2D<tSpatialGridEntry>      mGridEntries;    
     /// location of the bottom left corner of the domain
     tVector2                         mDomainMin;
     /// location of the top right corner of the domain
@@ -828,13 +678,22 @@ inline tParticle * tSpatialGridIterator::GetNext(const tSpatialGrid & grid)
 class QueWorldInteractions : public b2QueryCallback
 {
 public:
-    QueWorldInteractions(cFluidHashList (*grid)[hashHeight], tParticle *particles,float _knorm, float _ktang,float particleradius)
+    QueWorldInteractions(cFluidHashList (**grid), tParticle *particles,float _knorm, float _ktang,
+                         float particleradius, float _gTimeStep
+//    , int  _sizew, int  _sizeh,
+//                         float  _gContainerWidth, float  _gContainerHeight
+    )
 	{
-        hashGridList = grid;
-        liquid = particles;
-        knorm = _knorm;
-        ktang = _ktang;
-        PartRadius = particleradius;
+        hashGridList     = grid;
+        liquid           = particles;
+        knorm            = _knorm;
+        ktang            = _ktang;
+        PartRadius       = particleradius;
+        gTimeStep        = _gTimeStep;
+//        sizew            = _sizew;
+//        sizeh            = _sizeh;
+//        gContainerWidth  = _gContainerWidth;
+//        gContainerHeight = _gContainerHeight;
     };
     
     bool ReportFixture(b2Fixture* fixture);
@@ -842,13 +701,18 @@ public:
     float deltaT;
     
 protected:
-    cFluidHashList (*hashGridList)[hashHeight];
+    cFluidHashList (**hashGridList);
     tParticle               *liquid;
     float                   knorm;          //  нормальный коэффициент восстановления
     float                   ktang;          //  тангенциальный коэффициент восстановления
     float                   mju;            //  вязкость
     float                   mro;            //  плотность
     float                   PartRadius;
+    float                   gTimeStep ;
+    int                     sizew;
+    int                     sizeh;
+    float                   gContainerWidth;
+    float                   gContainerHeight;
 };
 //*/
 
@@ -868,87 +732,87 @@ protected:
     float                   lastTime;
     float                   thisTime;
     float                   RIntoSpr_Factor;
-    int gWindowW;
-    int gWindowH;
+    float                   gSigma;
+    int                     gWindowW;
+    int                     gWindowH;
     
     // render individual particles or a filled in grid
     bool gRenderParticles;
     int gNRenderSamplesX;
     int gNRenderSamplesY;
-    tScalar gRenderDensityMin;
-    tScalar gRenderDensityMax;
-    tScalar gKernelScale;
+    float gRenderDensityMin;
+    float gRenderDensityMax;
+    float gKernelScale;
     // x ranges from 0 to domainX
-    tScalar gDomainX;
+
     // y ranges from 0 to domainY
-    tScalar gDomainY;
+
     
     // width of the container - leave some space for movement
-    tScalar gContainerWidth;
-    tScalar gContainerHeight;
-    
-    // position of the bottom left hand corner of the container.
-    tScalar gContainerX;
-    tScalar gContainerY;
-    
+    float gContainerWidth;
+    float gContainerHeight;
+
+    float   gContainerX;
+    float   gContainerY;
     
     // initial height of the fluid surface
-    tScalar gInitialFluidHeight;
+    float gInitialFluidHeight;
     
     // gravity - acceleration
     tVector2 gGravity;
     
     // fluid density - this is kg/m2 (since 2D)
-    tScalar gDensity0;
+    float gDensity0;
     
     // number of moving particles
     int gNParticles;
     
     // gViscosity
-    tScalar gViscosity;
+    float gViscosity;
     
     // relationship of pressure to density when using eq of state
     // P = gGasK((density/gDensity0)^2 - 1)
-    tScalar gGasK;
+    float gGasK;
     
     // integration gTimeStep - for simplicity (especially when using
     // verlet etc) this will be constant so doesn't need to be passed
     // around, at least within this file
-    tScalar gTimeStep;
+    float gTimeStep;
     
     // scale physics time
-    tScalar gTimeScale;
+    float gTimeScale;
     
     // radius of influence of each particle
-    tScalar gParticleRadius;
+    float gParticleRadius;
     
     // mass of each particle - gets initialised at startup
-    tScalar gParticleMass;
-    
-    tScalar gKernelH;
-    tScalar gKernelH9;
-    tScalar gKernelH6;
-    tScalar gKernelH4;
-    tScalar gKernelH3;
-    tScalar gKernelH2;
-    
+    float gParticleMass;
+
+    float kernelScale;
+    float gKernelH;
+    float gKernelH9;
+    float gKernelH6;
+    float gKernelH4;
+    float gKernelH3;
+    float gKernelH2;
+
     // normalising factors for the kernels
-    tScalar gWPoly6Scale ;
-    tScalar gWSpikyScale ;
-    tScalar gWViscosityScale ;
-    tScalar gWLucyScale ;
-    tScalar gBoundaryForceScale;
-    tScalar gBoundaryForceScaleDist;
+    float gWPoly6Scale ;
+    float gWSpikyScale ;
+    float gWViscosityScale ;
+    float gWLucyScale ;
+    float gBoundaryForceScale;
+    float gBoundaryForceScaleDist;
     tSpatialGrid * gSpatialGrid;
     tParticle * gParticles;
-    tScalar gObjectDensityFrac;
+    float gObjectDensityFrac;
     // bit hacky - extra force stopping objects getting "welded"
-    tScalar gObjectBoundaryScale;
+    float gObjectBoundaryScale;
     // Extra buoyancy because of non-realistic pressure
-    tScalar gObjectBuoyancyScale;
-    cFluidHashList          hashGridList[hashWidth][hashHeight];
+    float gObjectBuoyancyScale;
+    cFluidHashList       ** hashGridList;
     int*                    InHashCellIndexes;
-    tScalar                 SCALAR_TINY;
+    float                 SCALAR_TINY;
     bool                    gCreateObject;
 }
 
@@ -966,9 +830,6 @@ void SetupKernels ();
 void SetupDefaultParams ();
 void SetupExampleParams ( bool bStart );
 void SetupSpacing ();
-void SetupAddVolume ( b2Vec3 min, b2Vec3 max, float spacing, float offs );
-void SetupGridAllocate ( b2Vec3 min, b2Vec3 max, float sim_scale, float cell_size, float border );
-void ParseXML ( std::string name, int id, bool bStart );
 
 // Neighbor Search
 void Search ();
@@ -988,40 +849,5 @@ void EmitParticles ();
 -(void)Exit;
 double GetDT(); //		{ return m_DT; }
 
-// Acceleration Grid
-int getGridCell ( int p, b2Vec3& gc );
-int getGridCell ( b2Vec3& p, b2Vec3& gc );
-int getGridTotal ();//		{ return m_GridTotal; }
-int getSearchCnt ();//		{ return m_GridAdjCnt; }
-b2Vec3 getCell ( int gc );
-b2Vec3 GetGridRes ();//		{ return m_GridRes; }
-b2Vec3 GetGridMin ();//		{ return m_GridMin; }
-b2Vec3 GetGridMax ();//		{ return m_GridMax; }
-b2Vec3 GetGridDelta ();//	{ return m_GridDelta; }
-
-// Acceleration Neighbor Tables
-void AllocateNeighborTable ();
-void ClearNeighborTable ();
-void ResetNeighbors ();
-int GetNeighborTableSize ();//	{ return m_NeighborNum; }
-void ClearNeighbors ( int i );
-int AddNeighbor();
-int AddNeighbor( int i, int j, float d );
-
-// Parameters
-void SetParam (int p, float v );//		{ m_Param[p] = v; }
-void SetParam (int p, int v );//		{ m_Param[p] = (float) v; }
-float GetParam ( int p );//			{ return (float) m_Param[p]; }
-float SetParam ( int p, float v, float mn, float mx );//	{ m_Param[p] = v ; if ( m_Param[p] > mx ) m_Param[p] = mn; return m_Param[p];}
-float IncParam ( int p, float v, float mn, float mx );//	{
-//	m_Param[p] += v;
-//	if ( m_Param[p] < mn ) m_Param[p] = mn;
-//	if ( m_Param[p] > mx ) m_Param[p] = mn;
-//	return m_Param[p];
-//}
-b2Vec3 GetVec ( int p );//			{ return m_Vec[p]; }
-void SetVec ( int p, b2Vec3 v );//	{ m_Vec[p] = v; }
-void Toggle ( int p );//				{ m_Toggle[p] = !m_Toggle[p]; }
-bool GetToggle ( int p );//			{ return m_Toggle[p]; }
 
 @end
